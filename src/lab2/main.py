@@ -116,10 +116,10 @@ class ClassNormalCloud:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 1000, 'D': 600}, y={'M': 1000, 'D': 1000})
+    cloud1 = ClassNormalCloud(100, x={'M': 1000, 'D': 8000}, y={'M': 1000, 'D': 8000})
     cloud1.fill_cloud()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 1100, 'D': 1000}, y={'M': 1100, 'D': 600})
+    cloud2 = ClassNormalCloud(100, x={'M': 1100, 'D': 8000}, y={'M': 1100, 'D': 8000})
     cloud2.fill_cloud()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
