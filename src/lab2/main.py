@@ -1,9 +1,13 @@
+import math
 import random
+import itertools
+
 import numpy as np
 import pandas as pd
-import math
-import itertools
+import matplotlib.pyplot as plt
+
 from numpy.core.records import ndarray
+
 
 np.random.seed(42)
 
@@ -103,9 +107,35 @@ class ClassNormalCloud:
 
         pass
 
+    def get_feature_iterator(self, feature_name):
+        for im in self._images:
+            yield getattr(im, feature_name)
+
+    def get_feature_list(self, feature_name):
+        return list(self.get_feature_iterator(feature_name))
+
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 1000, 'D': 100}, y={'M': 1000, 'D': 100})
+    cloud1 = ClassNormalCloud(100, x={'M': 1000, 'D': 600}, y={'M': 1000, 'D': 1000})
     cloud1.fill_cloud()
-    gg = ''
-    pass
+
+    cloud2 = ClassNormalCloud(100, x={'M': 1100, 'D': 1000}, y={'M': 1100, 'D': 600})
+    cloud2.fill_cloud()
+
+    features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
+    features_y1 = list(itertools.chain(cloud1.get_feature_iterator('y')))
+
+    features_x2 = list(itertools.chain(cloud2.get_feature_iterator('x')))
+    features_y2 = list(itertools.chain(cloud2.get_feature_iterator('y')))
+
+    # Построение графика для обучающего набора
+    fig, ax = plt.subplots(figsize=(12, 7))
+    # Удаление верхней и правой границ
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # Добавление основных линий сетки
+    ax.grid(color='grey', linestyle='-', linewidth=0.25, alpha=0.5)
+    ax.scatter(features_x1, features_y1, color="#8C7298")
+    ax.scatter(features_x2, features_y2, color="#be542ccc")
+    plt.show()
