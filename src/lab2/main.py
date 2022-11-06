@@ -4,7 +4,9 @@ import itertools
 
 import numpy as np
 import pandas as pd
+
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 
 from numpy.core.records import ndarray
 
@@ -116,10 +118,10 @@ class ClassNormalCloud:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 1000, 'D': 8000}, y={'M': 1000, 'D': 8000})
+    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 6000}, y={'M': 1200, 'D': 6000})
     cloud1.fill_cloud()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 1100, 'D': 8000}, y={'M': 1100, 'D': 8000})
+    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 6000}, y={'M': 1300, 'D': 6000})
     cloud2.fill_cloud()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -128,14 +130,64 @@ if __name__ == "__main__":
     features_x2 = list(itertools.chain(cloud2.get_feature_iterator('x')))
     features_y2 = list(itertools.chain(cloud2.get_feature_iterator('y')))
 
-    # Построение графика для обучающего набора
-    fig, ax = plt.subplots(figsize=(12, 7))
+    # Построение Координатной плоскости облака образов
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    ax.set_aspect('equal', adjustable='box')
+
     # Удаление верхней и правой границ
     ax.spines['top'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.spines['right'].set_visible(False)
+
     # Добавление основных линий сетки
     ax.grid(color='grey', linestyle='-', linewidth=0.25, alpha=0.5)
+
+    # Образы
     ax.scatter(features_x1, features_y1, color="#8C7298")
     ax.scatter(features_x2, features_y2, color="#be542ccc")
+
+    # Линия соединяющие центры облаков
+    lM = mlines.Line2D([cloud1.x['M'], cloud2.x['M']], [cloud1.y['M'], cloud2.y['M']], color="#000", linestyle="--", marker="x")
+    ax.add_line(lM)
+    ax.annotate(f'({cloud1.x["M"]},\n {cloud1.y["M"]})',
+                (cloud1.x["M"], cloud1.y["M"]),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha='center',
+                color='blue', backgroundcolor="#eae1e196")
+    ax.annotate(f'({cloud2.x["M"]},\n {cloud2.y["M"]})',
+                (cloud2.x["M"], cloud2.y["M"]),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha='center',
+                color='blue', backgroundcolor="#eae1e196")
+
+    # Координаты середины отрезка
+    midx = ((cloud2.x['M'] + cloud1.x['M']) / 2)
+    midy = ((cloud2.y['M'] + cloud1.y['M']) / 2)
+    ax.plot(midx, midy, color="red", marker='o')
+    ax.annotate(f'({midx},\n {midy})',
+                (midx, midy),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha='center',
+                color='blue', backgroundcolor="#eae1e196")
+
+    # Прочертим нормаль, найдем тангенс противолежащего угла к нормали
+    dmy = (midy - cloud1.y['M'])
+    tgnorm = np.round((cloud2.y['M'] - cloud1.y['M']) / (cloud2.x['M'] - cloud1.x['M']), 4)
+    alpha = math.atan(tgnorm)
+    midlen = (dmy / math.sin(alpha))
+    norm = (midlen * tgnorm)
+
+    normx1 = cloud1.x['M'] + math.sqrt((math.pow(norm, 2) + math.pow(midlen, 2)))
+    normy1 = cloud1.y['M']
+
+    normx2 = cloud2.x['M'] - math.sqrt((math.pow(norm, 2) + math.pow(midlen, 2)))
+    normy2 = cloud2.y['M']
+
+    lnorm = mlines.Line2D([normx1, normx2], [normy1, normy2], color="green", linestyle="-", marker="x")
+    ax.add_line(lnorm)
+
     plt.show()
