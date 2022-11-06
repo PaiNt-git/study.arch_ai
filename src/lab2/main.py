@@ -117,6 +117,119 @@ class ClassNormalCloud:
         return list(self.get_feature_iterator(feature_name))
 
 
+class CloudComparator:
+    cloud1 = None
+    cloud2 = None
+
+    def __init__(self, cloud1: ClassNormalCloud, cloud2: ClassNormalCloud):
+        self.cloud1 = cloud1
+        self.cloud2 = cloud2
+
+        if self.cloud1.dimensionality != self.cloud2.dimensionality:
+            raise ValueError('Размерность облаков образов не равна')
+
+        if self.cloud1.features_names != self.cloud2.features_names:
+            raise ValueError('Признаки облаков образов не совпадают')
+
+        self._features_names = [x for x in self.cloud1.features_names]
+        self._dimensionality = self.cloud1.dimensionality
+
+    @property
+    def dimensionality(self):
+        return self._dimensionality
+
+    @property
+    def features_names(self):
+        return self._features_names
+
+    @staticmethod
+    def get_between_point_len(image1: Image, image2: Image):
+        if image1.dimensionality != image2.dimensionality:
+            raise ValueError('Размерность образов не равна')
+
+        if image1.features_names != image2.features_names:
+            raise ValueError('Признаки образов не совпадают')
+
+        quads = []
+        for feature in image1.features_names:
+            quads.append(math.pow((getattr(image2, feature) - getattr(image1, feature)), 2))
+
+        return math.sqrt(sum(quads))
+
+    @property
+    def mid_image(self) -> Image:
+        coords = {}
+        for feature in self.features_names:
+            mid_feature = ((getattr(self.cloud2, feature)['M'] + getattr(self.cloud1, feature)['M']) / 2)
+            coords[feature] = mid_feature
+
+        return Image(**coords)
+
+    @property
+    def mid_len(self):
+        coords = {f: getattr(self.cloud1, f)['M'] for f in self.features_names}
+        MImage = Image(**coords)
+        ll = self.get_between_point_len(MImage, self.mid_image)
+        return ll
+
+    def get_normal_image_r2_main(self, znak='+', ) -> Image:
+        mid_image = self.mid_image
+
+        fe_r2 = self.features_names[:2]
+        tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
+        norm_r2_len = (self.mid_len * tgnorm_r2)
+
+        coords = {}
+
+        featquad = sum([math.pow((getattr(self.cloud2, f)['M'] - getattr(self.cloud1, f)['M']), 2) for f in fe_r2])
+
+        for i, feature in enumerate(fe_r2):
+
+            if znak == '+':
+                if i == 0:
+                    coords[feature] = getattr(mid_image, fe_r2[0]) + norm_r2_len * ((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / math.sqrt(featquad))
+                else:
+                    coords[feature] = getattr(mid_image, fe_r2[1]) - norm_r2_len * ((getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']) / math.sqrt(featquad))
+            else:
+                if i == 0:
+                    coords[feature] = getattr(mid_image, fe_r2[0]) - norm_r2_len * ((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / math.sqrt(featquad))
+                else:
+                    coords[feature] = getattr(mid_image, fe_r2[1]) + norm_r2_len * ((getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']) / math.sqrt(featquad))
+
+        return Image(**coords)
+
+    def get_normal_image_r2_analityc(self, znak='+', ) -> Image:
+
+        # Обрежем размерность до R2
+        fe_r2 = self.features_names[:2]
+
+        # Координаты середины отрезка
+        midx = ((getattr(self.cloud2, fe_r2[0])['M'] + getattr(self.cloud1, fe_r2[0])['M']) / 2)
+        midy = ((getattr(self.cloud2, fe_r2[1])['M'] + getattr(self.cloud1, fe_r2[1])['M']) / 2)
+
+        # Дельта y
+        dmy = (midy - getattr(self.cloud2, fe_r2[1])['M'])
+
+        # Найдем тангенс R2 противолежащего угла к нормали
+        tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
+
+        # Длинна нормали
+        alpha_r2 = math.atan(tgnorm_r2)
+        midlen = (dmy / math.sin(alpha_r2))
+        norm_r2_len = (midlen * tgnorm_r2)
+
+        coords = {}
+
+        if znak == '+':
+            coords[fe_r2[0]] = getattr(self.cloud1, fe_r2[0])['M'] + math.sqrt((math.pow(norm_r2_len, 2) + math.pow(midlen, 2)))
+            coords[fe_r2[1]] = getattr(self.cloud1, fe_r2[1])['M']
+        else:
+            coords[fe_r2[0]] = getattr(self.cloud2, fe_r2[0])['M'] - math.sqrt((math.pow(norm_r2_len, 2) + math.pow(midlen, 2)))
+            coords[fe_r2[1]] = getattr(self.cloud1, fe_r2[1])['M']
+
+        return Image(**coords)
+
+
 if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 6000}, y={'M': 1200, 'D': 6000})
     cloud1.fill_cloud()
@@ -163,31 +276,24 @@ if __name__ == "__main__":
                 ha='center',
                 color='blue', backgroundcolor="#eae1e196")
 
+    # Сравнитель
+    comparator = CloudComparator(cloud1, cloud2)
+
     # Координаты середины отрезка
-    midx = ((cloud2.x['M'] + cloud1.x['M']) / 2)
-    midy = ((cloud2.y['M'] + cloud1.y['M']) / 2)
-    ax.plot(midx, midy, color="red", marker='o')
-    ax.annotate(f'({midx},\n {midy})',
-                (midx, midy),
+    mid_point = comparator.mid_image
+    mid_len = comparator.mid_len
+    ax.plot(mid_point.x, mid_point.y, color="red", marker='o')
+    ax.annotate(f'({mid_point.x},\n {mid_point.y})',
+                (mid_point.x, mid_point.y),
                 textcoords="offset points",
                 xytext=(0, 10),
                 ha='center',
                 color='blue', backgroundcolor="#eae1e196")
 
-    # Прочертим нормаль, найдем тангенс противолежащего угла к нормали
-    dmy = (midy - cloud1.y['M'])
-    tgnorm = np.round((cloud2.y['M'] - cloud1.y['M']) / (cloud2.x['M'] - cloud1.x['M']), 4)
-    alpha = math.atan(tgnorm)
-    midlen = (dmy / math.sin(alpha))
-    norm = (midlen * tgnorm)
+    # Координаты точка отрезка соединяющего середину и перпендикуляр
+    normal_point = comparator.get_normal_image_r2_analityc()
 
-    normx1 = cloud1.x['M'] + math.sqrt((math.pow(norm, 2) + math.pow(midlen, 2)))
-    normy1 = cloud1.y['M']
-
-    normx2 = cloud2.x['M'] - math.sqrt((math.pow(norm, 2) + math.pow(midlen, 2)))
-    normy2 = cloud2.y['M']
-
-    lnorm = mlines.Line2D([normx1, normx2], [normy1, normy2], color="green", linestyle="-", marker="x")
+    lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x")
     ax.add_line(lnorm)
 
     plt.show()
