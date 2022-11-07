@@ -238,7 +238,7 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 6000}, y={'M': 1200, 'D': 9000})
+    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 10000}, y={'M': 1200, 'D': 10000})
     cloud1.fill_cloud()
 
     cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 6000})
@@ -330,6 +330,7 @@ if __name__ == "__main__":
     if byy > 0:
         byy = f' + {byy:.{3}f}'
     else:
+        byy = abs(byy)
         byy = f' - {byy:.{3}f}'
 
     # Опорный вектор +
@@ -338,6 +339,7 @@ if __name__ == "__main__":
     if byneg > 0:
         byneg = f' + {byneg:.{3}f}'
     else:
+        byneg = abs(byneg)
         byneg = f' - {byneg:.{3}f}'
 
     # Опорный вектор -
@@ -346,6 +348,7 @@ if __name__ == "__main__":
     if bypos > 0:
         bypos = f' + {bypos:.{3}f}'
     else:
+        bypos = abs(bypos)
         bypos = f' - {bypos:.{3}f}'
 
     ax.plot(xx, yy, 'k',
