@@ -1,6 +1,7 @@
 import math
 import random
 import itertools
+import time
 
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ import matplotlib.lines as mlines
 from numpy.core.records import ndarray
 
 
-np.random.seed(42)
+np.random.seed(int(time.time()))
 
 
 class Image:
@@ -246,6 +247,7 @@ if __name__ == "__main__":
     # Построение Координатной плоскости облака образов
     fig, ax = plt.subplots(figsize=(10, 6), num='Облака образов')
 
+    # Чтобы перпендикуляры были перпендикулярными
     ax.set_aspect('equal', adjustable='box')
 
     # Удаление верхней и правой границ
