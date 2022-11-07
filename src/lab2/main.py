@@ -238,10 +238,10 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 6000}, y={'M': 1200, 'D': 6000})
+    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 6000}, y={'M': 1200, 'D': 9000})
     cloud1.fill_cloud()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 6000}, y={'M': 1300, 'D': 6000})
+    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 6000})
     cloud2.fill_cloud()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
