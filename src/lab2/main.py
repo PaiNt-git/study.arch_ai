@@ -6,10 +6,13 @@ import time
 import numpy as np
 import pandas as pd
 
+
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
 from numpy.core.records import ndarray
+from sklearn.svm import SVC
+import sys
 
 
 np.random.seed(int(time.time()))
@@ -301,4 +304,60 @@ if __name__ == "__main__":
     lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x")
     ax.add_line(lnorm)
 
+    # Попытаемся получить уравнение разделяющей линии (гиперплоскости) с помощью sklearn
+
+    # define the dataset
+    minx = min(itertools.chain(map(lambda x: x.x, cloud1._images), map(lambda x: x.x, cloud2._images)))
+    maxx = max(itertools.chain(map(lambda x: x.x, cloud1._images), map(lambda x: x.x, cloud2._images)))
+    X = np.array(list(itertools.chain(map(lambda x: [getattr(x, f) for f in x.features_names], cloud1._images), map(lambda x: [getattr(x, f) for f in x.features_names], cloud2._images))))
+    Y = np.array(list(itertools.chain(itertools.repeat(1, cloud1.size), itertools.repeat(-1, cloud1.size))))
+
+    # define support vector classifier with linear kernel
+    clf = SVC(gamma='auto', kernel='linear')
+
+    # fit the above data in SVC
+    clf.fit(X, Y)
+
+    # plot the decision boundary, data points, support vector etcv
+    w = clf.coef_[0]
+    a = -w[0] / w[1]
+
+    xx = np.linspace(minx, maxx, X.shape[1])
+
+    # Уравнение линии (гиперплоскости) разделения
+    yy = a * xx - clf.intercept_[0] / w[1]
+    byy = 0 - clf.intercept_[0] / w[1]
+    if byy > 0:
+        byy = f' + {byy:.{3}f}'
+    else:
+        byy = f' - {byy:.{3}f}'
+
+    # Опорный вектор +
+    y_neg = a * xx - clf.intercept_[0] / w[1] + 1
+    byneg = 0 - clf.intercept_[0] / w[1] + 1
+    if byneg > 0:
+        byneg = f' + {byneg:.{3}f}'
+    else:
+        byneg = f' - {byneg:.{3}f}'
+
+    # Опорный вектор -
+    y_pos = a * xx - clf.intercept_[0] / w[1] - 1
+    bypos = 0 - clf.intercept_[0] / w[1] - 1
+    if bypos > 0:
+        bypos = f' + {bypos:.{3}f}'
+    else:
+        bypos = f' - {bypos:.{3}f}'
+
+    ax.plot(xx, yy, 'k',
+            label=f"Линия (гп) разделения (y = {a:.{3}f}x{byy})")  # f"Линия (гп) разделения (y ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
+
+    ax.plot(xx, y_neg, 'b-.',
+            label=f"- ОВ (y = {a:.{3}f}x{byneg})")  # f"- ОВ (-1 ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
+
+    ax.plot(xx, y_pos, 'r-.',
+            label=f"+ ОВ (y = {a:.{3}f}x{bypos})")  # f"+ ОВ (1 ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
+
+    plt.legend()
     plt.show()
+
+    sys.exit()
