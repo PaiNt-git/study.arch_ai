@@ -119,6 +119,9 @@ class ClassNormalCloud:
 
 
 class CloudComparator:
+    """
+    Сравнитель облак образов
+    """
     cloud1 = None
     cloud2 = None
 
