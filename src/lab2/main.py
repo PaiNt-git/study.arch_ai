@@ -244,7 +244,7 @@ if __name__ == "__main__":
     features_y2 = list(itertools.chain(cloud2.get_feature_iterator('y')))
 
     # Построение Координатной плоскости облака образов
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(10, 6), num='Облака образов')
 
     ax.set_aspect('equal', adjustable='box')
 
