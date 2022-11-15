@@ -99,6 +99,11 @@ class ClassNormalCloud:
         return self._size
 
     def fill_cloud(self):
+        """
+        Обычное заполнение облака образами с _независимым_ (получается одномерным) нормальным распределением каждого признака
+        """
+        del self._images
+        self._images = []
 
         features_appropriate = []
         for key in self.features_names:
@@ -110,6 +115,28 @@ class ClassNormalCloud:
             ftu = {k: v for k, v in itertools.zip_longest(self.features_names, features)}
             self._images.append(Image(**ftu))
             pass
+
+        pass
+
+    def fill_cloud_Rn_dimension(self):
+        """
+        Заполнение облака по нормальному распределению исходя из размерности облака
+        """
+        del self._images
+        self._images = []
+
+        true_dispersion = None
+
+        features_Ms = []
+        for key in self.features_names:
+            fsett = getattr(self, key)
+            if true_dispersion is None:
+                true_dispersion = fsett['D']
+
+            if fsett['D'] != true_dispersion:
+                raise ValueError('В режиме заливки "по полной размерности облака" необходимо равенство дисперсий каждого признака')
+
+            features_Ms.append(fsett['M'])
 
         pass
 
