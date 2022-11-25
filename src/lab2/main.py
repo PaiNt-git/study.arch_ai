@@ -2,18 +2,17 @@ import math
 import random
 import itertools
 import time
+import sys
 
+import scipy.stats as sps
 import numpy as np
 import pandas as pd
-
 
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 
 from numpy.core.records import ndarray
 from sklearn.svm import SVC
-import sys
-
 
 np.random.seed(int(time.time()))
 
@@ -57,16 +56,19 @@ class ClassNormalCloud:
             Md_ft['x'] =
             'M': float, # математическое ожидание признака x
             'D': float, # дисперсия случайной величины признака x
+            'cov_lambda': None, # Функция (lambda ft_i, ft_j: 0) для вычисления Ковариация между i-признаком (данным) и j-признаком (где j=i+1)
             }
             Md_ft['y'] =
             'M': float, # математическое ожидание признака y
             'D': float, # дисперсия случайной величины признака y
+            'cov_lambda': None, # Функция (lambda ft_i, ft_j: 0) для вычисления Ковариация между i-признаком (данным) и j-признаком (где j=i+1)
             }
 
             ...
             Md_ft['n'] =
             'M': float, # математическое ожидание признака n
             'D': float, # дисперсия случайной величины признака n
+            'cov_lambda': None, # Функция (lambda ft_i, ft_j: 0) для вычисления Ковариация между i-признаком (данным) и j-признаком (где j=i+1)
             }
 
         """
@@ -74,6 +76,7 @@ class ClassNormalCloud:
         self._dimensionality = 0
         self._size = N
         self._images = []
+        self._default_cov = []
 
         for key, val in Md_ft.items():
             if not isinstance(key, (str, int)):
@@ -85,6 +88,26 @@ class ClassNormalCloud:
             self._features_names.append(key)
             self._dimensionality += 1
             setattr(self, key, {**val})
+
+        for i, fnamei in enumerate(self.features_names):
+            cov_i_row = []
+            fsetti = getattr(self, fnamei)
+            for j, fnamej in enumerate(self.features_names):
+                fsettj = getattr(self, fnamej)
+
+                # Диагональ матрицы всегда дисперсия
+                if i == j and fnamei == fnamej:
+                    cov_i_row.append(fsettj['D'])
+
+                # Ковариация между i-признаком и j-признаком
+                else:
+                    cov_lambda = fsetti.get('cov_lambda', None)
+                    if cov_lambda and hasattr(cov_lambda, '__call__'):
+                        cov_i_row.append(cov_lambda(fnamei, fnamej))
+                    else:
+                        cov_i_row.append(0)
+
+            self._default_cov.append(cov_i_row)
 
     @property
     def dimensionality(self):
@@ -118,7 +141,7 @@ class ClassNormalCloud:
 
         pass
 
-    def fill_cloud_Rn_dimension(self, cov_matrix: list=None):
+    def fill_cloud_Rn_dimension(self):
         """
         Заполнение облака по нормальному распределению исходя из размерности облака
         """
@@ -133,33 +156,67 @@ class ClassNormalCloud:
             if true_dispersion is None:
                 true_dispersion = fsett['D']
 
-            if fsett['D'] != true_dispersion:
-                raise ValueError('В режиме заливки "по полной размерности облака" необходимо равенство дисперсий каждого признака')
+            #===================================================================
+            # if fsett['D'] != true_dispersion:
+            #     raise ValueError('В режиме заливки "по полной размерности облака" необходимо равенство дисперсий каждого признака')
+            #===================================================================
 
             features_Ms.append(fsett['M'])
 
         mean = features_Ms
-        cov = cov_matrix or []
-        if not len(cov):
-            for i, fnamei in enumerate(self.features_names):
-                cov_i_row = []
-                for j, fnamej in enumerate(self.features_names):
-                    if i == j and fnamei == fnamej:
-                        fsett = getattr(self, key)
-                        cov_i_row.append(fsett['D'])
-
-                    # Ковариация между i-признаком и j-признаком
-                    else:
-                        cov_i_row.append(0)
-
-                cov.append(cov_i_row)
+        cov = self._default_cov
 
         *features_arrays, = np.random.multivariate_normal(mean, cov, self.size).T
 
         for features in itertools.zip_longest(*features_arrays):
-            print(features)
             ftu = {k: v for k, v in itertools.zip_longest(self.features_names, features)}
             self._images.append(Image(**ftu))
+
+        pass
+
+    def pdf_Rn_dimension_scypy(self, x: Image):
+        """
+        Пло́тность вероя́тности (probability density function - PDF) - scypy
+
+        :param x:
+        """
+        if x.dimensionality != self.dimensionality:
+            raise ValueError("Размерность образа и облака не соотносятся")
+
+        cov_m = self._default_cov
+        mu = [getattr(self, f)['M'] for f in self.features_names]
+        norm_distribution = sps.multivariate_normal(mean=mu, cov=cov_m)
+        features_value = [getattr(x, f) for f in self.features_names]
+        return norm_distribution.pdf(np.array(features_value))
+
+    def pdf_Rn_dimension(self, x: Image):
+        """
+        Пло́тность вероя́тности (probability density function - PDF)
+
+        :param x:
+        """
+        if x.dimensionality != self.dimensionality:
+            raise ValueError("Размерность образа и облака не соотносятся")
+
+        sigma = np.matrix(self._default_cov)
+        mu = np.array([getattr(self, f)['M'] for f in self.features_names])
+
+        size = x.dimensionality
+
+        if size == len(mu) and (size, size) == sigma.shape:
+            features_value = np.array([getattr(x, f) for f in self.features_names])
+
+            det = np.linalg.det(sigma)  # Детерминант
+            if det == 0:
+                raise ValueError("The covariance matrix can't be singular")
+
+            norm_const = 1.0 / (math.pow((2 * np.pi), float(size) / 2) * math.pow(det, 1.0 / 2))
+            x_mu = np.matrix(features_value - mu)
+            inv = sigma.I
+            result = math.pow(math.e, -0.5 * (x_mu * inv * x_mu.T))
+            return norm_const * result
+        else:
+            raise ValueError("Размерность образа и ковариационной матрицы не соотносятся")
 
         pass
 
@@ -297,6 +354,9 @@ if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 10000}, y={'M': 1200, 'D': 10000})
     cloud1.fill_cloud_Rn_dimension()
 
+    print(cloud1.pdf_Rn_dimension_scypy(cloud1._images[0]))
+    print(cloud1.pdf_Rn_dimension(cloud1._images[0]))
+
     cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 10000})
     cloud2.fill_cloud_Rn_dimension()
 
@@ -353,70 +413,21 @@ if __name__ == "__main__":
                 xytext=(0, 10),
                 ha='center',
                 color='blue', backgroundcolor="#eae1e196")
+    # / Координаты середины отрезка
 
     # Координаты точка отрезка соединяющего середину и перпендикуляр
     normal_point = comparator.get_normal_image_r2_analityc()
-
     lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x")
     ax.add_line(lnorm)
+    # / Координаты точка отрезка соединяющего середину и перпендикуляр
 
-    # Попытаемся получить уравнение разделяющей линии (гиперплоскости) с помощью sklearn
+    # ========================
+    # Program Body
+    # ========================
 
-    # define the dataset
-    minx = min(itertools.chain(map(lambda x: x.x, cloud1._images), map(lambda x: x.x, cloud2._images)))
-    maxx = max(itertools.chain(map(lambda x: x.x, cloud1._images), map(lambda x: x.x, cloud2._images)))
-    X = np.array(list(itertools.chain(map(lambda x: [getattr(x, f) for f in x.features_names], cloud1._images), map(lambda x: [getattr(x, f) for f in x.features_names], cloud2._images))))
-    Y = np.array(list(itertools.chain(itertools.repeat(1, cloud1.size), itertools.repeat(-1, cloud1.size))))
+    # ========================
+    # / Program Body
+    # ========================
 
-    # define support vector classifier with linear kernel
-    clf = SVC(gamma='auto', kernel='linear')
-
-    # fit the above data in SVC
-    clf.fit(X, Y)
-
-    # plot the decision boundary, data points, support vector etcv
-    w = clf.coef_[0]
-    a = -w[0] / w[1]
-
-    xx = np.linspace(minx, maxx, X.shape[1])
-
-    # Уравнение линии (гиперплоскости) разделения
-    yy = a * xx - clf.intercept_[0] / w[1]
-    byy = 0 - clf.intercept_[0] / w[1]
-    if byy > 0:
-        byy = f' + {byy:.{3}f}'
-    else:
-        byy = abs(byy)
-        byy = f' - {byy:.{3}f}'
-
-    # Опорный вектор +
-    y_neg = a * xx - clf.intercept_[0] / w[1] + 1
-    byneg = 0 - clf.intercept_[0] / w[1] + 1
-    if byneg > 0:
-        byneg = f' + {byneg:.{3}f}'
-    else:
-        byneg = abs(byneg)
-        byneg = f' - {byneg:.{3}f}'
-
-    # Опорный вектор -
-    y_pos = a * xx - clf.intercept_[0] / w[1] - 1
-    bypos = 0 - clf.intercept_[0] / w[1] - 1
-    if bypos > 0:
-        bypos = f' + {bypos:.{3}f}'
-    else:
-        bypos = abs(bypos)
-        bypos = f' - {bypos:.{3}f}'
-
-    ax.plot(xx, yy, 'k',
-            label=f"Линия (гп) разделения (y = {a:.{3}f}x{byy})")  # f"Линия (гп) разделения (y ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
-
-    ax.plot(xx, y_neg, 'b-.',
-            label=f"- ОВ (y = {a:.{3}f}x{byneg})")  # f"- ОВ (-1 ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
-
-    ax.plot(xx, y_pos, 'r-.',
-            label=f"+ ОВ (y = {a:.{3}f}x{bypos})")  # f"+ ОВ (1 ={w[0]:.{3}f}x₁  + {w[1]:.{3}f}x₂  {clf.intercept_[0]:.{3}f})"
-
-    plt.legend()
     plt.show()
-
     sys.exit()
