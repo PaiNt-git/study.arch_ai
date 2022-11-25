@@ -177,6 +177,7 @@ class ClassNormalCloud:
     def pdf_Rn_dimension_scypy(self, x: Image):
         """
         Пло́тность вероя́тности (probability density function - PDF) - scypy
+        Вернуть значение вероятности точки по ее признакам
 
         :param x:
         """
@@ -192,6 +193,7 @@ class ClassNormalCloud:
     def pdf_Rn_dimension(self, x: Image):
         """
         Пло́тность вероя́тности (probability density function - PDF)
+        Вернуть значение вероятности точки по ее признакам
 
         :param x:
         """
@@ -286,13 +288,11 @@ class CloudComparator:
         ll = self.get_between_point_len(MImage, self.mid_image)
         return ll
 
-    def get_normal_image_r2_main(self, znak='+', ) -> Image:
+    def get_normal_image_r2_main(self, feature_name1, feature_name2, znak='+', ) -> Image:
         mid_image = self.mid_image
 
         # Обрежем размерность до R2
-        fe_r2 = self.features_names[:2]
-        if len(fe_r2) != len(self.features_names) != 2:
-            raise ValueError('Размерность облаков не равна 2')
+        fe_r2 = [feature_name1, feature_name2]
 
         tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
         norm_r2_len = (self.mid_len * tgnorm_r2)
@@ -314,50 +314,93 @@ class CloudComparator:
                 else:
                     coords[feature] = getattr(mid_image, fe_r2[1]) + norm_r2_len * ((getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']) / math.sqrt(featquad))
 
-        return Image(**coords)
-
-    def get_normal_image_r2_analityc(self, znak='+', ) -> Image:
-
-        # Обрежем размерность до R2
-        fe_r2 = self.features_names[:2]
-        if len(fe_r2) != len(self.features_names) != 2:
-            raise ValueError('Размерность облаков не равна 2')
-
-        # Координаты середины отрезка
-        midx = ((getattr(self.cloud2, fe_r2[0])['M'] + getattr(self.cloud1, fe_r2[0])['M']) / 2)
-        midy = ((getattr(self.cloud2, fe_r2[1])['M'] + getattr(self.cloud1, fe_r2[1])['M']) / 2)
-
-        # Дельта y
-        dmy = (midy - getattr(self.cloud2, fe_r2[1])['M'])
-
-        # Найдем тангенс R2 противолежащего угла к нормали
-        tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
-
-        # Длинна нормали
-        alpha_r2 = math.atan(tgnorm_r2)
-        midlen = (dmy / math.sin(alpha_r2))
-        norm_r2_len = (midlen * tgnorm_r2)
-
-        coords = {}
-
-        if znak == '+':
-            coords[fe_r2[0]] = getattr(self.cloud1, fe_r2[0])['M'] + math.sqrt((math.pow(norm_r2_len, 2) + math.pow(midlen, 2)))
-            coords[fe_r2[1]] = getattr(self.cloud1, fe_r2[1])['M']
-        else:
-            coords[fe_r2[0]] = getattr(self.cloud2, fe_r2[0])['M'] - math.sqrt((math.pow(norm_r2_len, 2) + math.pow(midlen, 2)))
-            coords[fe_r2[1]] = getattr(self.cloud1, fe_r2[1])['M']
+        # Заполним координаты недолстающих признаков нулями
+        not_has_features = [x for x in self.features_names if x not in fe_r2]
+        coords.update((k, 0) for k in not_has_features)
 
         return Image(**coords)
+
+    def get_separate_hyperplane_points(self, cloud_num=1, margin_of_error=0.0005):
+        cloud1_features_value = [getattr(self.cloud1, f) for f in self.cloud1.features_names]
+        cloud2_features_value = [getattr(self.cloud2, f) for f in self.cloud2.features_names]
+
+        M1max = step_accuracy1 = max([x['M'] for x in cloud1_features_value])
+        M2max = step_accuracy2 = max([x['M'] for x in cloud2_features_value])
+
+        D1max = max(x['D'] for x in cloud1_features_value)
+        margin_of_error1 = margin_of_error / D1max
+        D2max = max(x['D'] for x in cloud2_features_value)
+        margin_of_error2 = margin_of_error / D2max
+
+        current_cloud = self.cloud1 if cloud_num == 1 else self.cloud2
+        current_margin = margin_of_error1 if cloud_num == 1 else margin_of_error2
+
+        # Приведение гиперпространства к сумме двухмерных
+        images = []
+        for feature_r2 in itertools.combinations(current_cloud.features_names, 2):
+            x, y = feature_r2
+            x_m = getattr(current_cloud, x)['M']
+            y_m = getattr(current_cloud, y)['M']
+            not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
+
+            # шаги изменений для алгоритма
+            step_x = x_m / step_accuracy1
+            step_y = y_m / step_accuracy1
+
+            # определяем наибольшие точки сверху
+            ITER = 0
+            current_y = y_m + step_y * ITER
+            coords_top_y = {
+                x: x_m,
+                y: current_y,
+            }
+            coords_top_y.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
+            while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_y))) > current_margin:
+                current_y = y_m + step_y * ITER
+                coords_top_y[y] = current_y
+                ITER += 1
+            top_y = step_y * ITER
+
+            # определяем наибольшие точки справа
+            ITER = 0
+            current_x = x_m + step_x * ITER
+            coords_top_x = {
+                x: current_x,
+                y: y_m,
+            }
+            coords_top_x.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
+            while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_x))) > current_margin:
+                current_x = x_m + step_x * ITER
+                coords_top_x[x] = current_x
+                ITER += 1
+            top_x = step_x * ITER
+
+            for al in range(0, 361, 30):
+                x_ = x_m + top_x * math.cos(math.radians(al))
+                y_ = y_m + top_y * math.sin(math.radians(al))
+                coords_ = {
+                    x: x_,
+                    y: y_,
+                }
+                coords_.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
+
+                images.append(Image(**coords_))
+
+        return images
+
+    @staticmethod
+    def get_feature_iterator_from_images(images, feature_name):
+        for im in images:
+            yield getattr(im, feature_name)
+
+    pass
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 10000}, y={'M': 1200, 'D': 10000})
+    cloud1 = ClassNormalCloud(100, x={'M': 220, 'D': 10000}, y={'M': 300, 'D': 2000})
     cloud1.fill_cloud_Rn_dimension()
 
-    print(cloud1.pdf_Rn_dimension_scypy(cloud1._images[0]))
-    print(cloud1.pdf_Rn_dimension(cloud1._images[0]))
-
-    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 10000})
+    cloud2 = ClassNormalCloud(100, x={'M': 80, 'D': 10000}, y={'M': 60, 'D': 2000})
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -416,7 +459,7 @@ if __name__ == "__main__":
     # / Координаты середины отрезка
 
     # Координаты точка отрезка соединяющего середину и перпендикуляр
-    normal_point = comparator.get_normal_image_r2_analityc()
+    normal_point = comparator.get_normal_image_r2_main('x', 'y')
     lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x")
     ax.add_line(lnorm)
     # / Координаты точка отрезка соединяющего середину и перпендикуляр
@@ -424,6 +467,31 @@ if __name__ == "__main__":
     # ========================
     # Program Body
     # ========================
+
+    # Разделение через минимум Пло́тности вероя́тности
+    sep_plane_images = comparator.get_separate_hyperplane_points(1)
+    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+    for i in range(1, len(sep_plane_images), 1):
+        ax.add_line(
+            mlines.Line2D(
+                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+                color="#e6188c",
+                marker="x")
+        )
+
+    sep_plane_images = comparator.get_separate_hyperplane_points(2)
+    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+    for i in range(1, len(sep_plane_images), 1):
+        ax.add_line(
+            mlines.Line2D(
+                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+                color="#44ec86",
+                marker="x")
+        )
 
     # ========================
     # / Program Body
