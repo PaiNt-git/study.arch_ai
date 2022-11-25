@@ -118,7 +118,7 @@ class ClassNormalCloud:
 
         pass
 
-    def fill_cloud_Rn_dimension(self):
+    def fill_cloud_Rn_dimension(self, cov_matrix: list=None):
         """
         Заполнение облака по нормальному распределению исходя из размерности облака
         """
@@ -137,6 +137,29 @@ class ClassNormalCloud:
                 raise ValueError('В режиме заливки "по полной размерности облака" необходимо равенство дисперсий каждого признака')
 
             features_Ms.append(fsett['M'])
+
+        mean = features_Ms
+        cov = cov_matrix or []
+        if not len(cov):
+            for i, fnamei in enumerate(self.features_names):
+                cov_i_row = []
+                for j, fnamej in enumerate(self.features_names):
+                    if i == j and fnamei == fnamej:
+                        fsett = getattr(self, key)
+                        cov_i_row.append(fsett['D'])
+
+                    # Ковариация между i-признаком и j-признаком
+                    else:
+                        cov_i_row.append(0)
+
+                cov.append(cov_i_row)
+
+        *features_arrays, = np.random.multivariate_normal(mean, cov, self.size).T
+
+        for features in itertools.zip_longest(*features_arrays):
+            print(features)
+            ftu = {k: v for k, v in itertools.zip_longest(self.features_names, features)}
+            self._images.append(Image(**ftu))
 
         pass
 
@@ -209,7 +232,11 @@ class CloudComparator:
     def get_normal_image_r2_main(self, znak='+', ) -> Image:
         mid_image = self.mid_image
 
+        # Обрежем размерность до R2
         fe_r2 = self.features_names[:2]
+        if len(fe_r2) != len(self.features_names) != 2:
+            raise ValueError('Размерность облаков не равна 2')
+
         tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
         norm_r2_len = (self.mid_len * tgnorm_r2)
 
@@ -236,6 +263,8 @@ class CloudComparator:
 
         # Обрежем размерность до R2
         fe_r2 = self.features_names[:2]
+        if len(fe_r2) != len(self.features_names) != 2:
+            raise ValueError('Размерность облаков не равна 2')
 
         # Координаты середины отрезка
         midx = ((getattr(self.cloud2, fe_r2[0])['M'] + getattr(self.cloud1, fe_r2[0])['M']) / 2)
@@ -266,10 +295,10 @@ class CloudComparator:
 
 if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 800, 'D': 10000}, y={'M': 1200, 'D': 10000})
-    cloud1.fill_cloud()
+    cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 6000})
-    cloud2.fill_cloud()
+    cloud2 = ClassNormalCloud(100, x={'M': 1300, 'D': 10000}, y={'M': 1300, 'D': 10000})
+    cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
     features_y1 = list(itertools.chain(cloud1.get_feature_iterator('y')))
