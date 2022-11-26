@@ -210,7 +210,7 @@ class ClassNormalCloud:
 
             det = np.linalg.det(sigma)  # Детерминант
             if det == 0:
-                raise ValueError("The covariance matrix can't be singular")
+                raise ValueError("Ковариационная матрица не может быть сингулярной")
 
             norm_const = 1.0 / (math.pow((2 * np.pi), float(size) / 2) * math.pow(det, 1.0 / 2))
             x_mu = np.matrix(features_value - mu)
@@ -375,32 +375,32 @@ class CloudComparator:
             step_y = y_m / step_accuracy1
 
             # определяем наибольшие точки сверху
-            ITER = 0
-            current_y = y_m + step_y * ITER
+            _iter_counter = 0
+            current_y = y_m + step_y * _iter_counter
             coords_top_y = {
                 x: x_m,
                 y: current_y,
             }
             coords_top_y.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
             while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_y))) > current_margin:
-                current_y = y_m + step_y * ITER
+                current_y = y_m + step_y * _iter_counter
                 coords_top_y[y] = current_y
-                ITER += 1
-            top_y = step_y * ITER
+                _iter_counter += 1
+            top_y = step_y * _iter_counter
 
             # определяем наибольшие точки справа
-            ITER = 0
-            current_x = x_m + step_x * ITER
+            _iter_counter = 0
+            current_x = x_m + step_x * _iter_counter
             coords_top_x = {
                 x: current_x,
                 y: y_m,
             }
             coords_top_x.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
             while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_x))) > current_margin:
-                current_x = x_m + step_x * ITER
+                current_x = x_m + step_x * _iter_counter
                 coords_top_x[x] = current_x
-                ITER += 1
-            top_x = step_x * ITER
+                _iter_counter += 1
+            top_x = step_x * _iter_counter
 
             for al in range(0, 361, 30):
                 x_ = x_m + top_x * math.cos(math.radians(al))
@@ -424,10 +424,10 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 220, 'D': 10000}, y={'M': 300, 'D': 2000})
+    cloud1 = ClassNormalCloud(100, x={'M': 500, 'D': 1000}, y={'M': 300, 'D': 10000})
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 80, 'D': 10000}, y={'M': 60, 'D': 2000})
+    cloud2 = ClassNormalCloud(100, x={'M': 40, 'D': 30000}, y={'M': 100, 'D': 2000})
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
