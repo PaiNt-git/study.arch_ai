@@ -543,6 +543,7 @@ class CloudComparator:
 
             # Координаты середины отрезка
             mid_point = self.mid_image
+            M1_M2_len = self.get_between_point_len(Image(x=x1_m, y=y1_m), Image(x=x2_m, y=y2_m))
             # Координаты точка отрезка соединяющего середину и перпендикуляр
             normal_point = self.get_normal_image_r2_main('x', 'y')
 
@@ -557,10 +558,12 @@ class CloudComparator:
             x_base = list(map(lambda s: x1_m + s * ((x2_m - x1_m) / x_steps), range(0, x_steps + 1)))
             y_base = list(map(lambda xx: k((x1_m, y1_m), (x2_m, y2_m)) * xx + b((x1_m, y1_m), (x2_m, y2_m)), x_base))
 
-            y_offset = y_base[1] - y_base[0]
+            y_offset = math.sqrt((M1_M2_len / x_steps)**2 - ((x2_m - x1_m) / x_steps)**2)
+
+            # TODO: Какая-то хрень
 
             new_norm_y = []
-            for i in range((0 - (x_steps * 2 // 2)), x_steps * 2 // 2 + 1):
+            for i in range(0 - x_steps // 2, x_steps // 2):
                 k_normal_ = k_normal
                 b_normal_ = b_normal + i * y_offset
                 norm_y_min = k_normal_ * x_min + b_normal_
