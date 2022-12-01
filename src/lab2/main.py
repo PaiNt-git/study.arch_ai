@@ -13,6 +13,7 @@ import matplotlib.lines as mlines
 
 from numpy.core.records import ndarray
 from sklearn.svm import SVC
+import cmath
 
 np.random.seed(int(time.time()))
 
@@ -341,13 +342,80 @@ class CloudComparator:
 
         return Image(**coords)
 
-    def get_separate_hyperplane_points(self, cloud_num=1, margin_of_error=0.0005):
+    @staticmethod
+    def get_line_ellipse_intersect(ellipse_coeffs, line_coefs):
+        """
+        Точка пересечения линии с эллипсом
+
+        Универсальная тригонометрическая подстановка
+        https://zaochnik.com/spravochnik/matematika/trigonometrija/universalnaja-trigonometricheskaja-podstanovka/
+
+        :param ellipse_coeffs: x = A + B * cos(al);  y = C + D * sin(al)
+        :param line_coefs: y = k * x + b
+        """
+        ec = ellipse_coeffs
+        lc = line_coefs
+
+        # Конечная формула квадратного уравнения
+        # (C - k*A - b + k*B) * X^2  + (2*D) * X - (k*B - C + k*A + b) = 0
+        # где X = tg(al/2)
+
+        def quadraticroots(a, b, c):
+            if a == b == 0:
+                return
+
+            if a == 0:
+                return
+
+            discriminant = b**2 - 4 * a * c
+            if discriminant > 0:
+                root1 = (-b + math.sqrt(discriminant)) / (2 * a)
+                root2 = (-b - math.sqrt(discriminant)) / (2 * a)
+                return (root1, root2)
+            elif discriminant == 0:
+                root1 = float(-b + math.sqrt(discriminant)) / (2 * a)
+                return (root1, root1)
+            elif discriminant < 0:
+                root1 = (-b + cmath.sqrt(discriminant)) / (2 * a)
+                root2 = (-b - cmath.sqrt(discriminant)) / (2 * a)
+                return (root1, root2)
+
+        X1, X2 = quadraticroots(
+            (ec['C'] - lc['k'] * ec['A'] - lc['b'] + lc['k'] * ec['B']),  # a
+            (2 * ec['D']),  # b
+            (lc['k'] * ec['B'] - ec['C'] + lc['k'] * ec['A'] + lc['b']),  # c
+        )
+
+        al_half1 = cmath.atan(X1)
+        al1 = 2 * al_half1
+
+        al_half2 = cmath.atan(X2)
+        al2 = 2 * al_half2
+
+        x1 = ec['A'] + ec['B'] * cmath.cos(al1)
+        y1 = lc['k'] * x1 + lc['b']
+
+        x2 = ec['A'] + ec['B'] * cmath.cos(al2)
+        y2 = lc['k'] * x2 + lc['b']
+
+        if isinstance(x1, complex):
+            return None, None, None, None
+        else:
+            return x1, y1, x2, y2
+
+    def get_probability_circle_points(self, cloud_num=1, margin_of_error=0.0005, ax=None):
         """
         Нарисовать линию (окружность) разделения между облаками
 
         :param cloud_num: относительно какого облака рисовать
         :param margin_of_error:
         """
+
+        # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
+        def k(p_1, p_2): return (p_2[1] - p_1[1]) / (p_2[0] - p_1[0])
+
+        def b(p_1, p_2): return (p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])
+
         cloud1_features_value = [getattr(self.cloud1, f) for f in self.cloud1.features_names]
         cloud2_features_value = [getattr(self.cloud2, f) for f in self.cloud2.features_names]
 
@@ -364,10 +432,18 @@ class CloudComparator:
 
         # Приведение гиперпространства к сумме двухмерных
         images = []
+        circle_equations = {}
+
         for feature_r2 in itertools.combinations(current_cloud.features_names, 2):
             x, y = feature_r2
             x_m = getattr(current_cloud, x)['M']
             y_m = getattr(current_cloud, y)['M']
+
+            x1_m = getattr(self.cloud1, x)['M']
+            y1_m = getattr(self.cloud1, y)['M']
+            x2_m = getattr(self.cloud2, x)['M']
+            y2_m = getattr(self.cloud2, y)['M']
+
             not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
 
             # шаги изменений для алгоритма
@@ -402,18 +478,124 @@ class CloudComparator:
                 _iter_counter += 1
             top_x = step_x * _iter_counter
 
+            if not (x, y) in circle_equations:
+                _equations = {
+                    'func_def': f'''{x} = A + B*cos(a)\n{y} = C + D*sin(a)''',
+                    'A': x_m,
+                    'B': top_x,
+                    'C': y_m,
+                    'D': top_y,
+                    x: lambda a: x_m + top_x * math.cos(math.radians(a)),
+                    y: lambda a: y_m + top_y * math.sin(math.radians(a)),
+                }
+
+                k_base = k((x1_m, y1_m), (x2_m, y2_m))
+                b_base = b((x1_m, y1_m), (x2_m, y2_m))
+
+                xx1, yy1, xx2, yy2 = self.get_line_ellipse_intersect(_equations, {'k': k_base, 'b': b_base})
+
+                if ax and xx1 is not None:
+                    ax.scatter(xx1, yy1, color="#574616", marker="+", s=300)
+                    ax.scatter(xx2, yy2, color="#574616", marker="+", s=300)
+
+                circle_equations[(x, y)] = _equations
+
             for al in range(0, 361, 30):
-                x_ = x_m + top_x * math.cos(math.radians(al))
-                y_ = y_m + top_y * math.sin(math.radians(al))
+                x_ = circle_equations[(x, y)][x](al)  # x_m + top_x * math.cos(math.radians(al))
+                y_ = circle_equations[(x, y)][y](al)  # y_m + top_y * math.sin(math.radians(al))
+
                 coords_ = {
                     x: x_,
                     y: y_,
                 }
-                coords_.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
+                coords_.update((f, 0) for f in not_has_features)
 
                 images.append(Image(**coords_))
 
-        return images
+        return images, circle_equations
+
+    def get_sep_line(self, x_steps=10, ax=None):
+        """
+        Простая линия разделения на основе перпендикуляра к линии соединяющей матожидания
+
+        """
+
+        # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
+        def k(p_1, p_2): return (p_2[1] - p_1[1]) / (p_2[0] - p_1[0])
+
+        def b(p_1, p_2): return (p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])
+
+        # Приведение гиперпространства к сумме двухмерных
+        images = []
+        line_equations = {}
+
+        for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
+            x, y = feature_r2
+            x1_m = getattr(self.cloud1, x)['M']
+            y1_m = getattr(self.cloud1, y)['M']
+            x2_m = getattr(self.cloud2, x)['M']
+            y2_m = getattr(self.cloud2, y)['M']
+            not_has_features = [f for f in self.cloud1.features_names if f not in (x, y)]
+
+            # Минимальные и максимальные x из двух облак
+            x_points = self.cloud1.get_feature_list(x) + self.cloud2.get_feature_list(x)
+            x_min, x_max = round(np.min(x_points), 2), round(np.max(x_points), 2)
+
+            # Координаты середины отрезка
+            mid_point = self.mid_image
+            # Координаты точка отрезка соединяющего середину и перпендикуляр
+            normal_point = self.get_normal_image_r2_main('x', 'y')
+
+            k_normal = k((getattr(mid_point, x), getattr(mid_point, y)), (getattr(normal_point, x), getattr(normal_point, y)))
+            b_normal = b((getattr(mid_point, x), getattr(mid_point, y)), (getattr(normal_point, x), getattr(normal_point, y)))
+
+            k_sep = None
+            b_sep = None
+            x_sep = None
+            y_sep = None
+
+            x_base = list(map(lambda s: x1_m + s * ((x2_m - x1_m) / x_steps), range(0, x_steps + 1)))
+            y_base = list(map(lambda xx: k((x1_m, y1_m), (x2_m, y2_m)) * xx + b((x1_m, y1_m), (x2_m, y2_m)), x_base))
+
+            y_offset = y_base[1] - y_base[0]
+
+            new_norm_y = []
+            for i in range((0 - (x_steps * 2 // 2)), x_steps * 2 // 2 + 1):
+                k_normal_ = k_normal
+                b_normal_ = b_normal + i * y_offset
+                norm_y_min = k_normal_ * x_min + b_normal_
+                norm_y_max = k_normal_ * x_max + b_normal_
+                new_norm_y.append((norm_y_min, norm_y_max))
+
+            if ax:
+                ax.scatter(x_base, y_base, color="#FDB94D")
+                for ymin, ymax in new_norm_y:
+                    ax.add_line(
+                        mlines.Line2D(
+                            [x_min, x_max],
+                            [ymin, ymax],
+                            color="#FDB94D",
+                            marker="x")
+                    )
+
+            if not (x, y) in line_equations and k_sep is not None and b_sep is not None:
+                _equations = {
+                    'func_def': f'''y = {k_sep}x + {b_sep}''',
+                    'k': k_sep,
+                    'b': b_sep,
+                    y: lambda xx: k_sep * xx + b_sep,
+                }
+                line_equations[(x, y)] = _equations
+
+                coords_ = {
+                    x: x_sep,
+                    y: y_sep,
+                }
+                coords_.update((f, 0) for f in not_has_features)
+
+                images.append(Image(**coords_))
+
+        return images, line_equations
 
     @staticmethod
     def get_feature_iterator_from_images(images, feature_name):
@@ -424,10 +606,10 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 500, 'D': 1000}, y={'M': 300, 'D': 10000})
+    cloud1 = ClassNormalCloud(100, x={'M': 200, 'D': 1000}, y={'M': 500, 'D': 800})
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 40, 'D': 30000}, y={'M': 100, 'D': 2000})
+    cloud2 = ClassNormalCloud(100, x={'M': 700, 'D': 8000}, y={'M': 700, 'D': 1000})
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -476,6 +658,7 @@ if __name__ == "__main__":
     # Координаты середины отрезка
     mid_point = comparator.mid_image
     mid_len = comparator.mid_len
+
     ax.plot(mid_point.x, mid_point.y, color="red", marker='o')
     ax.annotate(f'({mid_point.x},\n {mid_point.y})',
                 (mid_point.x, mid_point.y),
@@ -495,30 +678,36 @@ if __name__ == "__main__":
     # Program Body
     # ========================
 
-    # Разделение через минимум Пло́тности вероя́тности
-    sep_plane_images = comparator.get_separate_hyperplane_points(1)
-    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
-    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
-    for i in range(1, len(sep_plane_images), 1):
-        ax.add_line(
-            mlines.Line2D(
-                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
-                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
-                color="#e6188c",
-                marker="x")
-        )
+#===============================================================================
+#     # Разделение через минимум Пло́тности вероя́тности
+#     sep_plane_images, circle_equations1 = comparator.get_probability_circle_points(1, ax=ax)
+#
+#     sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+#     sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+#     for i in range(1, len(sep_plane_images), 1):
+#         ax.add_line(
+#             mlines.Line2D(
+#                 [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+#                 [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+#                 color="#e6188c",
+#                 marker="x")
+#         )
+#
+#     sep_plane_images, circle_equations2 = comparator.get_probability_circle_points(2, ax=ax)
+#
+#     sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+#     sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+#     for i in range(1, len(sep_plane_images), 1):
+#         ax.add_line(
+#             mlines.Line2D(
+#                 [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+#                 [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+#                 color="#44ec86",
+#                 marker="x")
+#         )
+#===============================================================================
 
-    sep_plane_images = comparator.get_separate_hyperplane_points(2)
-    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
-    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
-    for i in range(1, len(sep_plane_images), 1):
-        ax.add_line(
-            mlines.Line2D(
-                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
-                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
-                color="#44ec86",
-                marker="x")
-        )
+    comparator.get_sep_line(ax=ax)
 
     # ========================
     # / Program Body
