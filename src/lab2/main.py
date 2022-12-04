@@ -548,17 +548,24 @@ class CloudComparator:
                     }
                     line_equations[(x, y, cloud_num)] = _equations
 
-                    cloud_plus_points.append((cloud_num, Image(**coords_top_plus)))
-                    cloud_minus_points.append((cloud_num, Image(**coords_top_minus)))
+                    cloud_plus_points.append((cloud_num, 'plus', Image(**coords_top_plus)))
+                    cloud_minus_points.append((cloud_num, 'minus', Image(**coords_top_minus)))
 
         # Вычислим комбинациями минимальное расстояние
         minlen = max(M1max, M2max)
         cloud_lens = {}
         for points in itertools.permutations(cloud_plus_points + cloud_minus_points, 2):
+
+            # Если это координаты одинаковых облак
             if points[0][0] == points[1][0]:
                 continue
-            ml = self.get_between_point_len(points[0][1], points[1][1])
-            cloud_lens[str(ml)] = (points[0][1], points[1][1])
+
+            # Если это минусы с минусами
+            if points[0][1] == points[1][1]:
+                continue
+
+            ml = self.get_between_point_len(points[0][2], points[1][2])
+            cloud_lens[str(ml)] = (points[0][2], points[1][2])
             if ml < minlen:
                 minlen = ml
 
@@ -568,7 +575,7 @@ class CloudComparator:
             mid_feature = ((getattr(cloud_lens[str(minlen)][1], feature) + getattr(cloud_lens[str(minlen)][0], feature)) / 2)
             center_coords[feature] = mid_feature
 
-        images.append(Image(**center_coords))
+        midinm = Image(**center_coords)
 
         # Вычислим точку перпендикуляра к середине
         endnormal_coords = []
@@ -584,10 +591,11 @@ class CloudComparator:
 
             not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
 
-            _equations = line_equations[(x, y, 1)]
+            _equations1 = line_equations[(x, y, 1)]
+            _equations2 = line_equations[(x, y, 1)]
 
-            k_endnormal = _equations['k']
-            b_endnormal = _equations['b_offset_func'](getattr(images[-1], x), getattr(images[-1], y))
+            k_endnormal = (_equations1['k'] + _equations2['k']) / 2
+            b_endnormal = (_equations1['b_offset_func'](getattr(midinm, x), getattr(midinm, y)) + _equations2['b_offset_func'](getattr(midinm, x), getattr(midinm, y))) / 2
 
             # Вычислим минимальные и максимальные x
             x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
@@ -607,6 +615,7 @@ class CloudComparator:
                 y: y2,
             })
 
+        images.append(midinm)
         images.append(Image(**endnormal_coords[0]))
         images.append(Image(**endnormal_coords[1]))
 
@@ -621,7 +630,7 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud1 = ClassNormalCloud(100, x={'M': 200, 'D': 1000}, y={'M': 500, 'D': 800}, klass=1)
+    cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
     cloud1.fill_cloud_Rn_dimension()
 
     cloud2 = ClassNormalCloud(100, x={'M': 700, 'D': 8000}, y={'M': 700, 'D': 1000}, klass=2)
