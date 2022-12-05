@@ -433,7 +433,7 @@ class CloudComparator:
 
         return images, circle_equations
 
-    def get_probability_midlane_points(self, margin_of_error=0.0005, ax=None, betta=0):
+    def get_probability_midlane_points(self, margin_of_error=0.0005, ax=None, fi=0):
         """
         Нарисовать линию разделения между облаками на основе минимизации вероятности pdf
 
@@ -577,6 +577,13 @@ class CloudComparator:
 
         midinm = Image(**center_coords)
 
+        # Вычислим минимальные и максимальные x
+        x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+        x_min = x_min - x_min * 0.1
+
+        x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+        x_max = x_max + x_max * 0.1
+
         # Вычислим точку перпендикуляра к середине между границами распределения
         endnormal_coords = []
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
@@ -596,13 +603,6 @@ class CloudComparator:
 
             k_endnormal = (_equations1['k'] + _equations2['k']) / 2
             b_endnormal = (_equations1['b_offset_func'](getattr(midinm, x), getattr(midinm, y)) + _equations2['b_offset_func'](getattr(midinm, x), getattr(midinm, y))) / 2
-
-            # Вычислим минимальные и максимальные x
-            x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_min = x_min - x_min * 0.1
-
-            x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_max = x_max + x_max * 0.1
 
             if not (x, y, 0) in line_equations:
                 _equations = {
@@ -640,30 +640,34 @@ class CloudComparator:
             B = -1
             C = line_equations[(x, y, 0)]['b']
 
-            alfa = atanrad = math.atan(A)
+            atanrad = math.atan(A)
 
-            # TODO: не смог прилепить вращение . Чтобы получить уравнение прямой повернутой относительно точки midinm
+            alfa = math.degrees(atanrad)
 
-            if betta == 0 or betta % 360 == 0:
-                x_t = endnormal_coords[0][x]
-                y_t = endnormal_coords[0][y]
+            lenline = self.get_between_point_len(midinm, Image(**endnormal_coords[0]))
 
-                x_b = endnormal_coords[1][x]
-                y_b = endnormal_coords[1][y]
-            else:
-                x_t = endnormal_coords[0][x]
-                y_t = endnormal_coords[0][y]
+            def get_line_rotate_formula(xx, fii=fi):
+                nonlocal line_equations
+                betta = (alfa - fii)
+                betta = math.radians(betta)
+                x_rotate = lenline * math.cos(betta) + getattr(midinm, x)
+                y_rotate = lenline * math.sin(betta) + getattr(midinm, y)
 
-                x_b = endnormal_coords[1][x]
-                y_b = endnormal_coords[1][y]
+                k_rotate = k((getattr(midinm, x), getattr(midinm, y)), (x_rotate, y_rotate))
+                b_rotate = b((getattr(midinm, x), getattr(midinm, y)), (x_rotate, y_rotate))
+
+                line_equations[(x, y, 0)][f'{y}_rotate'] = lambda xxx: k_rotate * xxx + b_rotate
+
+                return line_equations[(x, y, 0)][f'{y}_rotate'](xx)
 
             images.append(Image(**{
-                x: x_t,
-                y: y_t,
+                x: x_min,
+                y: get_line_rotate_formula(x_min),
             }))
+
             images.append(Image(**{
-                x: x_b,
-                y: y_b,
+                x: x_max,
+                y: get_line_rotate_formula(x_max),
             }))
 
         return images, line_equations
@@ -762,7 +766,7 @@ if __name__ == "__main__":
             marker="x")
     )
 
-    sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax, betta=90)
+    sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax, fi=-90)
     sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
     sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
 
@@ -771,18 +775,6 @@ if __name__ == "__main__":
             sep_features_x1,
             sep_features_y1,
             color="blue",
-            marker="x")
-    )
-
-    sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax, betta=-90)
-    sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
-    sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
-
-    ax.add_line(
-        mlines.Line2D(
-            sep_features_x1,
-            sep_features_y1,
-            color="pink",
             marker="x")
     )
 
