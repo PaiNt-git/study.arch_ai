@@ -754,6 +754,12 @@ if __name__ == "__main__":
     cloud2 = ClassNormalCloud(100, x={'M': 700, 'D': 8000}, y={'M': 700, 'D': 1000}, klass=2)
     cloud2.fill_cloud_Rn_dimension()
 
+    cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
+    cloud1.fill_cloud_Rn_dimension()
+
+    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
+    cloud2.fill_cloud_Rn_dimension()
+
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
     features_y1 = list(itertools.chain(cloud1.get_feature_iterator('y')))
 
