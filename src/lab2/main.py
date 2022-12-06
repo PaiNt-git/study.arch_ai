@@ -740,7 +740,7 @@ class CloudComparator:
 
         return images, line_equations
 
-    def test_point_sepline(self, testpoint: Image, O_point: Image, k_sep_line=None, b_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1) -> int:
+    def test_point_sepline(self, testpoint: Image, O_point: Image, k_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1) -> int:
         """
         С помощьюф функции math.atan2 и уравнению по паралельному переносу и смещению системы координат
         вычислим (угол) квадрант в который попадает линия соединяющая тестируемую точку со смещенным началом координат
