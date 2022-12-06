@@ -984,7 +984,7 @@ class CloudComparator:
         Вернуть класс облака которому принадлежит точка
 
         :param testpoint:
-        :param O_point:
+        :param O_point: ИЗБЫТОЧНО
         :param k_sep_line:
         :param sep_line_equations:
         :param left_cloud_num:
@@ -1066,7 +1066,7 @@ class CloudComparator:
                     offsets.append(-even_stnum * stvalue)
                 else:
                     odd_stnum += 1
-                    offsets.append(even_stnum * stvalue)
+                    offsets.append(odd_stnum * stvalue)
 
             for fi_ in range(0, 181, 20):
 
@@ -1085,12 +1085,12 @@ class CloudComparator:
                     good_points2[(x, y)][(k_rotate_r, b_rotate_r)] = 0
 
                 for testpoint in training1:
-                    testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                    testklass = comparator.classify_image(testpoint, o_point_im, k_sep_line=k_rotate, left_cloud_num=left_cloud_num)
                     if testklass == testpoint.klass:
                         good_points1[(x, y)][(k_rotate_r, b_rotate_r)] = good_points1[(x, y)][(k_rotate_r, b_rotate_r)] + 1
 
                 for testpoint in training2:
-                    testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                    testklass = comparator.classify_image(testpoint, o_point_im, k_sep_line=k_rotate, left_cloud_num=left_cloud_num)
                     if testklass == testpoint.klass:
                         good_points2[(x, y)][(k_rotate_r, b_rotate_r)] = good_points2[(x, y)][(k_rotate_r, b_rotate_r)] + 1
 
@@ -1110,12 +1110,12 @@ class CloudComparator:
                         good_points2[(x, y)][(k_offset_r, b_offset_r)] = 0
 
                     for testpoint in training1:
-                        testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                        testklass = comparator.classify_image(testpoint, o_point_im, k_sep_line=k_offset, left_cloud_num=left_cloud_num)
                         if testklass == testpoint.klass:
                             good_points1[(x, y)][(k_offset_r, b_offset_r)] = good_points1[(x, y)][(k_offset_r, b_offset_r)] + 1
 
                     for testpoint in training2:
-                        testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                        testklass = comparator.classify_image(testpoint, o_point_im, k_sep_line=k_offset, left_cloud_num=left_cloud_num)
                         if testklass == testpoint.klass:
                             good_points2[(x, y)][(k_offset_r, b_offset_r)] = good_points2[(x, y)][(k_offset_r, b_offset_r)] + 1
 
@@ -1287,6 +1287,24 @@ if __name__ == "__main__":
         )
 
     # Тестирование точки. Подпись угла
+    #===========================================================================
+    # k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
+    #                                                                                        le['b'],
+    #                                                                                        (le['center_point'].x, le['center_point'].y),  # o_point
+    #                                                                                        (le['x_r_point'], le['y_r_point']),  # r_point
+    #                                                                                        le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
+    #                                                                                        )(45)
+    # ax.add_line(
+    #     mlines.Line2D(
+    #         [left_x, right_x],
+    #         [left_y, right_y],
+    #         color="black",
+    #         marker="",
+    #         linewidth=3.5,
+    #     )
+    # )
+    #===========================================================================
+
     testpoint = random.choice((cloud1._images[0], cloud2._images[0]))
     testklass = comparator.classify_image(testpoint, le['center_point'], left_cloud_num=2)
     xtest = round(testpoint.x, 2)
@@ -1309,31 +1327,29 @@ if __name__ == "__main__":
                 color='#83017b', backgroundcolor="#cea7a7db",
                 )
 
-#===============================================================================
-#     # Линия оптимизированная
-#     k_opt, b_opt = comparator.get_optimized_sep_line(cloud1._images[:10], cloud2._images[:10],
-#                                                      le['k'], le['b'],
-#                                                      le['center_point'], Image(x=le['x_r_point'], y=le['y_r_point']),
-#                                                      steps=20, left_cloud_num=2)
-#
-#     opt_features_x1 = [
-#         pretty_line_x(b_opt, le['center_point'].x, le['left_x']),
-#         pretty_line_x(b_opt, le['center_point'].x, le['right_x']),
-#     ]
-#     opt_features_y1 = [
-#         pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[0] + b_opt)),
-#         pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[1] + b_opt)),
-#     ]
-#
-#     ax.add_line(
-#         mlines.Line2D(
-#             opt_features_x1,
-#             opt_features_y1,
-#             color="black",
-#             linewidth=2.1,
-#             marker="")
-#     )
-#===============================================================================
+    # Линия оптимизированная
+    k_opt, b_opt = comparator.get_optimized_sep_line(cloud1._images[:10], cloud2._images[:10],
+                                                     le['k'], le['b'],
+                                                     le['center_point'], Image(x=le['x_r_point'], y=le['y_r_point']),
+                                                     steps=20, left_cloud_num=2)
+
+    opt_features_x1 = [
+        pretty_line_x(b_opt, le['center_point'].x, le['left_x']),
+        pretty_line_x(b_opt, le['center_point'].x, le['right_x']),
+    ]
+    opt_features_y1 = [
+        pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[0] + b_opt)),
+        pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[1] + b_opt)),
+    ]
+
+    ax.add_line(
+        mlines.Line2D(
+            opt_features_x1,
+            opt_features_y1,
+            color="black",
+            linewidth=2.1,
+            marker="")
+    )
 
     # ========================
     # / Program Body
