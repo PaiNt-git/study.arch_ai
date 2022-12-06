@@ -158,8 +158,8 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
                     right_y = formul(right_x)
 
         else:
-            left_x, right_x = o_point[0], o_point[0]
-            left_y, right_y = y_min, y_max
+            left_x, right_x = lenline * math.cos(betta) + o_point[0], -lenline * math.cos(betta) + o_point[0]
+            left_y, right_y = lenline * math.sin(betta) + o_point[1], -lenline * math.sin(betta) + o_point[1]
 
         k_rotate = k((left_x, left_y), (right_x, right_y))
         b_rotate = b((left_x, left_y), (right_x, right_y))
@@ -247,7 +247,7 @@ def offset_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
                     right_y = formul(right_x)
 
         else:
-            left_x, right_x = r_point[0], r_point[0]
+            left_x, right_x = _offset_x, _offset_x
             left_y, right_y = y_min, y_max
 
         return k_normal, b1, left_x, left_y, right_x, right_y
@@ -1032,7 +1032,7 @@ if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
+    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 500, 'D': 1000}, klass=2)
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -1117,46 +1117,44 @@ if __name__ == "__main__":
             marker="")
     )
 
-#===============================================================================
-#     # Дополнительные построения
-#     le = line_equations[('x', 'y', 0)]
-#     for fi_ in range(0, 181, 10):
-#         k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
-#                                                                                                le['b'],
-#                                                                                                (le['center_point'].x, le['center_point'].y),  # o_point
-#                                                                                                (le['x_r_point'], le['y_r_point']),  # r_point
-#                                                                                                le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
-#                                                                                                )(fi_)
-#         ax.add_line(
-#             mlines.Line2D(
-#                 [left_x, right_x],
-#                 [left_y, right_y],
-#                 color="blue",
-#                 marker="",
-#                 linestyle=(0, (3, 5, 1, 5, 1, 5)),
-#                 linewidth=0.5,
-#             )
-#         )
-#
-#     step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
-#     for offset in range(-10 * step_o, 10 * step_o, step_o):
-#         k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
-#                                                                                                                    le['b'],
-#                                                                                                                    (le['center_point'].x, le['center_point'].y),  # o_point
-#                                                                                                                    (le['x_r_point'], le['y_r_point']),  # r_point
-#                                                                                                                    le['x_min'], le['x_max'], le['y_min'], le['y_max']
-#                                                                                                                    )(offset)
-#         ax.add_line(
-#             mlines.Line2D(
-#                 [x_offs_left, x_offs_right],
-#                 [y_offs_left, y_offs_right],
-#                 color="green",
-#                 marker="",
-#                 linestyle='--',
-#                 linewidth=0.5,
-#             )
-#         )
-#===============================================================================
+    # Дополнительные построения
+    le = line_equations[('x', 'y', 0)]
+    for fi_ in range(0, 181, 10):
+        k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
+                                                                                               le['b'],
+                                                                                               (le['center_point'].x, le['center_point'].y),  # o_point
+                                                                                               (le['x_r_point'], le['y_r_point']),  # r_point
+                                                                                               le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
+                                                                                               )(fi_)
+        ax.add_line(
+            mlines.Line2D(
+                [left_x, right_x],
+                [left_y, right_y],
+                color="blue",
+                marker="",
+                linestyle=(0, (3, 5, 1, 5, 1, 5)),
+                linewidth=0.5,
+            )
+        )
+
+    step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
+    for offset in range(-10 * step_o, 10 * step_o, step_o):
+        k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
+                                                                                                                   le['b'],
+                                                                                                                   (le['center_point'].x, le['center_point'].y),  # o_point
+                                                                                                                   (le['x_r_point'], le['y_r_point']),  # r_point
+                                                                                                                   le['x_min'], le['x_max'], le['y_min'], le['y_max']
+                                                                                                                   )(offset)
+        ax.add_line(
+            mlines.Line2D(
+                [x_offs_left, x_offs_right],
+                [y_offs_left, y_offs_right],
+                color="green",
+                marker="",
+                linestyle='--',
+                linewidth=0.5,
+            )
+        )
 
     # Тестирование точки. Подпись угла
     testpoint = random.choice((cloud1._images[0], cloud2._images[0]))
