@@ -89,11 +89,13 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
     def get_line_rotate_formula(fii):
         betta = (alfa - fii)
         betta = math.radians(betta)
-        x_rotate = lenline * math.cos(betta) + o_point[0]
-        y_rotate = lenline * math.sin(betta) + o_point[1]
 
-        k_rotate = k((o_point[0], o_point[1]), (x_rotate, y_rotate))
-        b_rotate = b((o_point[0], o_point[1]), (x_rotate, y_rotate))
+        if fii != 0:
+            x_rotate = lenline * math.cos(betta) + o_point[0]
+            y_rotate = lenline * math.sin(betta) + o_point[1]
+
+        k_rotate = k((o_point[0], o_point[1]), (x_rotate, y_rotate)) if fii != 0 else k_line
+        b_rotate = b((o_point[0], o_point[1]), (x_rotate, y_rotate)) if fii != 0 else b_line
 
         def formul(xxx): return pretty_line_y(b_rotate, y_min, y_max, (k_rotate * xxx + b_rotate))
 
@@ -161,8 +163,8 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
             left_x, right_x = lenline * math.cos(betta) + o_point[0], -lenline * math.cos(betta) + o_point[0]
             left_y, right_y = lenline * math.sin(betta) + o_point[1], -lenline * math.sin(betta) + o_point[1]
 
-        k_rotate = k((left_x, left_y), (right_x, right_y))
-        b_rotate = b((left_x, left_y), (right_x, right_y))
+        k_rotate = k((left_x, left_y), (right_x, right_y)) if fii != 0 else k_line
+        b_rotate = b((left_x, left_y), (right_x, right_y)) if fii != 0 else b_line
 
         return k_rotate, b_rotate, left_x, left_y, right_x, right_y
 
@@ -859,15 +861,18 @@ class CloudComparator:
                 }
                 line_equations[(x, y, 0)] = _equations
 
-            x1 = pretty_line_x(b_base, getattr(midinm, x), x_min)
+            print(("1--", y_min, y_max))
+
+            x1 = pretty_line_x(b_endnormal, getattr(midinm, x), x_min)
             y1 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x1 + b_endnormal))
+
+            x2 = pretty_line_x(b_endnormal, getattr(midinm, x), x_max)
+            y2 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x2 + b_endnormal))
+
             endnormal_coords.append({
                 x: x1,
                 y: y1,
             })
-
-            x2 = pretty_line_x(b_base, getattr(midinm, x), x_max)
-            y2 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x2 + b_endnormal))
             endnormal_coords.append({
                 x: x2,
                 y: y2,
@@ -883,6 +888,13 @@ class CloudComparator:
                                                                                                    (endnormal_coords[0][x], endnormal_coords[0][y]),  # r_point
                                                                                                    x_min, x_max, y_min, y_max, step_x
                                                                                                    )(fi)
+            # Если задано смещение offset_from_O
+            if offset_from_O:
+                k_rotate, b_rotate, left_x, left_y, right_x, right_y = offset_line_equation_and_points(k_rotate,
+                                                                                                       b_rotate,
+                                                                                                       (getattr(line_equations[(x, y, 0)]['center_point'], x), getattr(line_equations[(x, y, 0)]['center_point'], y)),  # o_point
+                                                                                                       (endnormal_coords[0][x], endnormal_coords[0][y]),  # r_point
+                                                                                                       x_min, x_max, y_min, y_max)(offset_from_O)
 
             line_equations[(x, y, 0)][f'{x}_r_point'] = endnormal_coords[0][x]
             line_equations[(x, y, 0)][f'{y}_r_point'] = endnormal_coords[0][y]
@@ -1137,6 +1149,7 @@ if __name__ == "__main__":
             )
         )
 
+    print(("2--", le['y_min'], le['y_max']))
     step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
     for offset in range(-10 * step_o, 10 * step_o, step_o):
         k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
