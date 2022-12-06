@@ -14,6 +14,7 @@ import matplotlib.lines as mlines
 from numpy.core.records import ndarray
 from sklearn.svm import SVC
 import cmath
+from numpy import inf
 
 np.random.seed(int(time.time()))
 
@@ -21,15 +22,42 @@ np.random.seed(int(time.time()))
 def k(p_1, p_2):
     # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
     dzero = (p_2[0] - p_1[0])
-
-    return ((p_2[1] - p_1[1]) / dzero) if dzero != 0 else 1
+    return np.float64((p_2[1] - p_1[1])) / dzero
 
 
 def b(p_1, p_2):
     # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
     dzero = (p_2[0] - p_1[0])
+    return np.float64((p_1[1] * p_2[0] - p_1[0] * p_2[1])) / dzero
 
-    return ((p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])) if dzero != 0 else 0
+
+def pretty_line_x(b_, x_O, x):
+    """
+    При делении на 0, неопределенность, и нужны специальные занчения x
+
+    :param b_:
+    :param x_O:
+    :param x:
+    """
+    if b_ in (-inf, inf):
+        return x_O
+    return x
+
+
+def pretty_line_y(b_, y_min, y_max, y):
+    """
+    При делении на 0, неопределенность, и нужны специальные занчения y
+
+    :param b_:
+    :param y_min:
+    :param y_max:
+    :param y:
+    """
+    if b_ == -inf:
+        return y_min
+    elif b_ == inf:
+        return y_max
+    return y
 
 
 def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, step_x=0):
@@ -67,65 +95,71 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
         k_rotate = k((o_point[0], o_point[1]), (x_rotate, y_rotate))
         b_rotate = b((o_point[0], o_point[1]), (x_rotate, y_rotate))
 
-        def formul(xxx): return k_rotate * xxx + b_rotate
+        def formul(xxx): return pretty_line_y(b_rotate, y_min, y_max, (k_rotate * xxx + b_rotate))
 
-        # "Левая" часть, возрастание и убывание функций
+        if b_rotate not in (-inf, inf) and b_line not in (-inf, inf):
 
-        left_x = x_min
-        left_y = formul(left_x)
+            # "Левая" часть, возрастание и убывание функций
 
-        if left_y > y_max:
-            while left_y > y_max:
-                left_x += step_x
-                left_y = formul(left_x)
-
-        elif left_y < y_min:
-            while left_y < y_min:
-                left_x += step_x
-                left_y = formul(left_x)
-
-        if left_y < y_min:
-            left_x = x_max
+            left_x = x_min
             left_y = formul(left_x)
-            while left_y < y_min:
-                left_x -= step_x
+
+            if left_y > y_max:
+                while left_y > y_max:
+                    left_x += step_x
+                    left_y = formul(left_x)
+
+            elif left_y < y_min:
+                while left_y < y_min:
+                    left_x += step_x
+                    left_y = formul(left_x)
+
+            if left_y < y_min:
+                left_x = x_max
                 left_y = formul(left_x)
+                while left_y < y_min:
+                    left_x -= step_x
+                    left_y = formul(left_x)
 
-        elif left_y > y_max:
-            left_x = x_max
-            left_y = formul(left_x)
-            while left_y > y_max:
-                left_x += step_x
+            elif left_y > y_max:
+                left_x = x_max
                 left_y = formul(left_x)
+                while left_y > y_max:
+                    left_x += step_x
+                    left_y = formul(left_x)
 
-        # "Правая" часть, возрастание и убывание функций
+            # "Правая" часть, возрастание и убывание функций
 
-        right_x = x_max
-        right_y = formul(right_x)
-
-        if right_y < y_min:
-            while right_y < y_min:
-                right_x -= step_x
-                right_y = formul(right_x)
-
-        elif right_y > y_max:
-            while right_y > y_max:
-                right_x -= step_x
-                right_y = formul(right_x)
-
-        if right_y > y_max:
-            right_x = x_min
+            right_x = x_max
             right_y = formul(right_x)
-            while right_y > y_max:
-                right_x += step_x
-                right_y = formul(right_x)
 
-        elif right_y < y_min:
-            right_x = x_min
-            right_y = formul(right_x)
-            while right_y < y_min:
-                right_x -= step_x
+            if right_y < y_min:
+                while right_y < y_min:
+                    right_x -= step_x
+                    right_y = formul(right_x)
+
+            elif right_y > y_max:
+                while right_y > y_max:
+                    right_x -= step_x
+                    right_y = formul(right_x)
+
+            if right_y > y_max:
+                right_x = x_min
                 right_y = formul(right_x)
+                while right_y > y_max:
+                    right_x += step_x
+                    right_y = formul(right_x)
+
+            elif right_y < y_min:
+                right_x = x_min
+                right_y = formul(right_x)
+                while right_y < y_min:
+                    right_x -= step_x
+                    right_y = formul(right_x)
+
+        else:
+            left_x, right_x = o_point[0], o_point[0]
+            left_y, right_y = y_min, y_max
 
         k_rotate = k((left_x, left_y), (right_x, right_y))
         b_rotate = b((left_x, left_y), (right_x, right_y))
@@ -150,65 +184,71 @@ def offset_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
         _offset_x = o_point[0] + step_x
         b1 = b_offset(_offset_x, o_point[1])  # k_normal * left_x + b1
 
-        def formul(xx): return k_normal * xx + b1
+        def formul(xx): return pretty_line_y(b1, y_min, y_max, (k_normal * xx + b1))
 
-        # "Левая" часть, возрастание и убывание функций
+        if b1 not in (-inf, inf) and b_line not in (-inf, inf):
 
-        left_x = x_min
-        left_y = formul(left_x)
+            # "Левая" часть, возрастание и убывание функций
 
-        if left_y > y_max:
-            while left_y > y_max:
-                left_x += accuracy_step
-                left_y = formul(left_x)
-
-        elif left_y < y_min:
-            while left_y < y_min:
-                left_x += accuracy_step
-                left_y = formul(left_x)
-
-        if left_y < y_min:
-            left_x = x_max
+            left_x = x_min
             left_y = formul(left_x)
-            while left_y < y_min:
-                left_x -= accuracy_step
+
+            if left_y > y_max:
+                while left_y > y_max:
+                    left_x += accuracy_step
+                    left_y = formul(left_x)
+
+            elif left_y < y_min:
+                while left_y < y_min:
+                    left_x += accuracy_step
+                    left_y = formul(left_x)
+
+            if left_y < y_min:
+                left_x = x_max
                 left_y = formul(left_x)
+                while left_y < y_min:
+                    left_x -= accuracy_step
+                    left_y = formul(left_x)
 
-        elif left_y > y_max:
-            left_x = x_max
-            left_y = formul(left_x)
-            while left_y > y_max:
-                left_x += accuracy_step
+            elif left_y > y_max:
+                left_x = x_max
                 left_y = formul(left_x)
+                while left_y > y_max:
+                    left_x += accuracy_step
+                    left_y = formul(left_x)
 
-        # "Правая" часть, возрастание и убывание функций
+            # "Правая" часть, возрастание и убывание функций
 
-        right_x = x_max
-        right_y = formul(right_x)
-
-        if right_y < y_min:
-            while right_y < y_min:
-                right_x -= accuracy_step
-                right_y = formul(right_x)
-
-        elif right_y > y_max:
-            while right_y > y_max:
-                right_x -= accuracy_step
-                right_y = formul(right_x)
-
-        if right_y > y_max:
-            right_x = x_min
+            right_x = x_max
             right_y = formul(right_x)
-            while right_y > y_max:
-                right_x += accuracy_step
-                right_y = formul(right_x)
 
-        elif right_y < y_min:
-            right_x = x_min
-            right_y = formul(right_x)
-            while right_y < y_min:
-                right_x -= accuracy_step
+            if right_y < y_min:
+                while right_y < y_min:
+                    right_x -= accuracy_step
+                    right_y = formul(right_x)
+
+            elif right_y > y_max:
+                while right_y > y_max:
+                    right_x -= accuracy_step
+                    right_y = formul(right_x)
+
+            if right_y > y_max:
+                right_x = x_min
                 right_y = formul(right_x)
+                while right_y > y_max:
+                    right_x += accuracy_step
+                    right_y = formul(right_x)
+
+            elif right_y < y_min:
+                right_x = x_min
+                right_y = formul(right_x)
+                while right_y < y_min:
+                    right_x -= accuracy_step
+                    right_y = formul(right_x)
+
+        else:
+            left_x, right_x = r_point[0], r_point[0]
+            left_y, right_y = y_min, y_max
 
         return k_normal, b1, left_x, left_y, right_x, right_y
 
@@ -652,6 +692,12 @@ class CloudComparator:
         step_x = 0.5
         step_y = 0.5
 
+        # Вычислим минимальные и максимальные x
+        x_min = 0
+        x_max = 0
+        y_min = 0
+        y_max = 0
+
         for cloud_num in (1, 2):
             current_cloud = self.cloud1 if cloud_num == 1 else self.cloud2
             current_margin = margin_of_error1 if cloud_num == 1 else margin_of_error2
@@ -668,6 +714,19 @@ class CloudComparator:
                 y2_m = getattr(self.cloud2, y)['M']
 
                 not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
+
+                # Вычислим минимальные и максимальные x
+                x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+                x_min = x_min - x_min * 0.1
+
+                x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+                x_max = x_max + x_max * 0.1
+
+                y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+                y_min = y_min - y_min * 0.1
+
+                y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+                y_max = y_max + y_max * 0.1
 
                 # шаги изменений для алгоритма
                 step_x = x_m / current_step_accuracy
@@ -703,8 +762,8 @@ class CloudComparator:
                 coords_top_plus.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
                 while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_plus))) > current_margin:
                     current_x = current_x + step_len * _iter_counter
-                    current_y = k_base * current_x + b_base
-                    coords_top_plus[x] = current_x
+                    current_y = pretty_line_y(b_base, y_min, y_max, (k_base * current_x + b_base))
+                    coords_top_plus[x] = pretty_line_x(b_base, current_x, current_x)
                     coords_top_plus[y] = current_y
                     _iter_counter += 1
 
@@ -721,8 +780,8 @@ class CloudComparator:
                 coords_top_minus.update((f, getattr(current_cloud, f)['M']) for f in not_has_features)
                 while abs(current_cloud.pdf_Rn_dimension(Image(**coords_top_minus))) > current_margin:
                     current_x = current_x - step_len * _iter_counter
-                    current_y = k_base * current_x + b_base
-                    coords_top_minus[x] = current_x
+                    current_y = pretty_line_y(b_base, y_min, y_max, (k_base * current_x + b_base))
+                    coords_top_minus[x] = pretty_line_x(b_base, current_x, current_x)
                     coords_top_minus[y] = current_y
                     _iter_counter += 1
 
@@ -735,8 +794,8 @@ class CloudComparator:
                         'k': k_normal,
                         'b_minus': b_top_plus,
                         'b_plus': b_top_minus,
-                        f'{y}_plus': lambda xx: k_normal * xx + b_top_plus,
-                        f'{y}_minus': lambda xx: k_normal * xx + b_top_minus,
+                        f'{y}_plus': lambda xx: pretty_line_y(b_top_plus, y_min, y_max, (k_normal * xx + b_top_plus)),
+                        f'{y}_minus': lambda xx: pretty_line_y(b_top_minus, y_min, y_max, (k_normal * xx + b_top_minus)),
                         'b_offset_func': b_frompoint_func,
                     }
                     line_equations[(x, y, cloud_num)] = _equations
@@ -770,19 +829,6 @@ class CloudComparator:
 
         midinm = Image(**center_coords)
 
-        # Вычислим минимальные и максимальные x
-        x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-        x_min = x_min - x_min * 0.1
-
-        x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-        x_max = x_max + x_max * 0.1
-
-        y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-        y_min = y_min - y_min * 0.1
-
-        y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-        y_max = y_max + y_max * 0.1
-
         # Вычислим точку перпендикуляра к середине между границами распределения
         endnormal_coords = []
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
@@ -808,20 +854,20 @@ class CloudComparator:
                     'func_def': f'''{y} = {k_endnormal}*x + {b_endnormal}''',
                     'k': k_endnormal,
                     'b': b_endnormal,
-                    f'{y}': lambda xx: k_endnormal * xx + b_endnormal,
+                    f'{y}': lambda xx: pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * xx + b_endnormal)),
                     'center_point': midinm,
                 }
                 line_equations[(x, y, 0)] = _equations
 
-            x1 = x_min
-            y1 = k_endnormal * x1 + b_endnormal
+            x1 = pretty_line_x(b_base, getattr(midinm, x), x_min)
+            y1 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x1 + b_endnormal))
             endnormal_coords.append({
                 x: x1,
                 y: y1,
             })
 
-            x2 = x_max
-            y2 = k_endnormal * x2 + b_endnormal
+            x2 = pretty_line_x(b_base, getattr(midinm, x), x_max)
+            y2 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x2 + b_endnormal))
             endnormal_coords.append({
                 x: x2,
                 y: y2,
@@ -1056,33 +1102,6 @@ if __name__ == "__main__":
     # ========================
 
     # Разделение через минимум Пло́тности вероя́тности
-    sep_plane_images, circle_equations1 = comparator.get_probability_circle_points(1, ax=ax)
-
-    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
-    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
-    for i in range(1, len(sep_plane_images), 1):
-        ax.add_line(
-            mlines.Line2D(
-                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
-                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
-                color="#e6188c",
-                marker="x")
-        )
-
-    sep_plane_images, circle_equations2 = comparator.get_probability_circle_points(2, ax=ax)
-
-    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
-    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
-    for i in range(1, len(sep_plane_images), 1):
-        ax.add_line(
-            mlines.Line2D(
-                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
-                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
-                color="#44ec86",
-                marker="x")
-        )
-
-    # Разделение через минимум Пло́тности вероя́тности
 
     # Линия перпендикулярная
     sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax)
@@ -1147,7 +1166,9 @@ if __name__ == "__main__":
         mlines.Line2D(
             [line_equations[('x', 'y', 0)]['center_point'].x, testpoint.x],
             [line_equations[('x', 'y', 0)]['center_point'].y, testpoint.y],
-            color="pink",
+            color="purple",
+            linestyle='dotted',
+            linewidth=0.8,
             marker="x")
     )
 
@@ -1156,7 +1177,7 @@ if __name__ == "__main__":
                 textcoords="offset points",
                 xytext=(0, 10),
                 ha='center',
-                color='blue', backgroundcolor="#eae1e196")
+                color='purple', backgroundcolor="#eae1e196")
 
     # ========================
     # / Program Body
