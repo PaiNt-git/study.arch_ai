@@ -15,6 +15,7 @@ from numpy.core.records import ndarray
 from sklearn.svm import SVC
 import cmath
 from numpy import inf
+from collections import defaultdict
 
 np.random.seed(int(time.time()))
 
@@ -861,8 +862,6 @@ class CloudComparator:
                 }
                 line_equations[(x, y, 0)] = _equations
 
-            print(("1--", y_min, y_max))
-
             x1 = pretty_line_x(b_endnormal, getattr(midinm, x), x_min)
             y1 = pretty_line_y(b_endnormal, y_min, y_max, (k_endnormal * x1 + b_endnormal))
 
@@ -984,7 +983,6 @@ class CloudComparator:
         """
         Вернуть класс облака которому принадлежит точка
 
-
         :param testpoint:
         :param O_point:
         :param k_sep_line:
@@ -1018,6 +1016,126 @@ class CloudComparator:
         else:
             return self.cloud2.klass or 2
 
+    def get_optimized_sep_line(self, training1: list, training2: list, k_line, b_line, o_point_im: Image, r_point_im: Image, steps=20, left_cloud_num=1):
+        """
+        Оптимизировать линию, смещая и поворачивая
+
+        :param training1:
+        :param training2:
+        :param k_line:
+        :param b_line:
+        :param o_point:
+        :param r_point:
+        :param stop_offset_lambda:
+        """
+        ret_k = 0
+        ret_b = 0
+
+        good_points1 = defaultdict(dict)
+        good_points2 = defaultdict(dict)
+        for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
+            x, y = feature_r2
+
+            # Вычислим минимальные и максимальные x
+            x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+            x_min = x_min - x_min * 0.1
+
+            x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+            x_max = x_max + x_max * 0.1
+
+            y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+            y_min = y_min - y_min * 0.1
+
+            y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+            y_max = y_max + y_max * 0.1
+
+            o_x = getattr(o_point_im, x)
+            o_y = getattr(o_point_im, y)
+
+            r_x = getattr(r_point_im, x)
+            r_y = getattr(r_point_im, y)
+
+            odd_stnum = 0
+            even_stnum = 0
+            stvalue = int(abs(getattr(self.cloud1, x)['M'] - getattr(self.cloud2, x)['M']) / 20)
+            offsets = []
+            for step in range(1, steps + 1):
+                iseven = (step % 2 == 0)
+                if iseven:
+                    even_stnum += 1
+                    offsets.append(-even_stnum * stvalue)
+                else:
+                    odd_stnum += 1
+                    offsets.append(even_stnum * stvalue)
+
+            for fi_ in range(0, 181, 20):
+
+                k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(k_line,
+                                                                                                       b_line,
+                                                                                                       (o_x, o_y),  # o_point
+                                                                                                       (r_x, r_y),  # r_point
+                                                                                                       x_min, x_max, y_min, y_max
+                                                                                                       )(fi_)
+
+                k_rotate_r = round(k_rotate, 4)
+                b_rotate_r = round(b_rotate, 4)
+                if (k_rotate_r, b_rotate_r) not in good_points1[(x, y)]:
+                    good_points1[(x, y)][(k_rotate_r, b_rotate_r)] = 0
+                if (k_rotate_r, b_rotate_r) not in good_points2[(x, y)]:
+                    good_points2[(x, y)][(k_rotate_r, b_rotate_r)] = 0
+
+                for testpoint in training1:
+                    testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                    if testklass == testpoint.klass:
+                        good_points1[(x, y)][(k_rotate_r, b_rotate_r)] = good_points1[(x, y)][(k_rotate_r, b_rotate_r)] + 1
+
+                for testpoint in training2:
+                    testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                    if testklass == testpoint.klass:
+                        good_points2[(x, y)][(k_rotate_r, b_rotate_r)] = good_points2[(x, y)][(k_rotate_r, b_rotate_r)] + 1
+
+                for offset in offsets:
+                    k_offset, b_offset, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(k_rotate,
+                                                                                                                               b_rotate,
+                                                                                                                               (o_x, o_y),  # o_point
+                                                                                                                               (left_x, left_y),  # r_point
+                                                                                                                               x_min, x_max, y_min, y_max
+                                                                                                                               )(offset)
+
+                    k_offset_r = round(k_offset, 4)
+                    b_offset_r = round(b_offset, 4)
+                    if (k_offset_r, b_offset_r) not in good_points1[(x, y)]:
+                        good_points1[(x, y)][(k_offset_r, b_offset_r)] = 0
+                    if (k_offset_r, b_offset_r) not in good_points2[(x, y)]:
+                        good_points2[(x, y)][(k_offset_r, b_offset_r)] = 0
+
+                    for testpoint in training1:
+                        testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                        if testklass == testpoint.klass:
+                            good_points1[(x, y)][(k_offset_r, b_offset_r)] = good_points1[(x, y)][(k_offset_r, b_offset_r)] + 1
+
+                    for testpoint in training2:
+                        testklass = comparator.classify_image(testpoint, o_point_im, left_cloud_num=left_cloud_num)
+                        if testklass == testpoint.klass:
+                            good_points2[(x, y)][(k_offset_r, b_offset_r)] = good_points2[(x, y)][(k_offset_r, b_offset_r)] + 1
+
+            pass
+            t1max = max(good_points1[(x, y)].values())
+            for key, val in good_points1[(x, y)].items():
+                if val == t1max:
+                    ret_k = key[0]
+                    ret_b = key[1]
+                    break
+
+            t2max = max(good_points1[(x, y)].values())
+            for key, val in good_points1[(x, y)].items():
+                if val == t2max and t2max > t1max:
+                    ret_k = key[0]
+                    ret_b = key[1]
+                    break
+
+        return ret_k, ret_b
+
     @staticmethod
     def get_feature_iterator_from_images(images, feature_name):
         for im in images:
@@ -1044,7 +1162,7 @@ if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 500, 'D': 1000}, klass=2)
+    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -1117,6 +1235,7 @@ if __name__ == "__main__":
 
     # Линия перпендикулярная
     sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax)
+    le = line_equations[('x', 'y', 0)]
     sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
     sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
 
@@ -1130,7 +1249,6 @@ if __name__ == "__main__":
     )
 
     # Дополнительные построения
-    le = line_equations[('x', 'y', 0)]
     for fi_ in range(0, 181, 10):
         k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
                                                                                                le['b'],
@@ -1149,7 +1267,6 @@ if __name__ == "__main__":
             )
         )
 
-    print(("2--", le['y_min'], le['y_max']))
     step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
     for offset in range(-10 * step_o, 10 * step_o, step_o):
         k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
@@ -1171,13 +1288,13 @@ if __name__ == "__main__":
 
     # Тестирование точки. Подпись угла
     testpoint = random.choice((cloud1._images[0], cloud2._images[0]))
-    testklass = comparator.classify_image(testpoint, line_equations[('x', 'y', 0)]['center_point'], left_cloud_num=2)
+    testklass = comparator.classify_image(testpoint, le['center_point'], left_cloud_num=2)
     xtest = round(testpoint.x, 2)
     ytest = round(testpoint.y, 2)
     ax.add_line(
         mlines.Line2D(
-            [line_equations[('x', 'y', 0)]['center_point'].x, testpoint.x],
-            [line_equations[('x', 'y', 0)]['center_point'].y, testpoint.y],
+            [le['center_point'].x, testpoint.x],
+            [le['center_point'].y, testpoint.y],
             color="purple",
             linestyle='dotted',
             linewidth=0.8,
@@ -1191,6 +1308,32 @@ if __name__ == "__main__":
                 ha='center',
                 color='#83017b', backgroundcolor="#cea7a7db",
                 )
+
+#===============================================================================
+#     # Линия оптимизированная
+#     k_opt, b_opt = comparator.get_optimized_sep_line(cloud1._images[:10], cloud2._images[:10],
+#                                                      le['k'], le['b'],
+#                                                      le['center_point'], Image(x=le['x_r_point'], y=le['y_r_point']),
+#                                                      steps=20, left_cloud_num=2)
+#
+#     opt_features_x1 = [
+#         pretty_line_x(b_opt, le['center_point'].x, le['left_x']),
+#         pretty_line_x(b_opt, le['center_point'].x, le['right_x']),
+#     ]
+#     opt_features_y1 = [
+#         pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[0] + b_opt)),
+#         pretty_line_y(b_opt, le['y_min'], le['y_max'], (k_opt * opt_features_x1[1] + b_opt)),
+#     ]
+#
+#     ax.add_line(
+#         mlines.Line2D(
+#             opt_features_x1,
+#             opt_features_y1,
+#             color="black",
+#             linewidth=2.1,
+#             marker="")
+#     )
+#===============================================================================
 
     # ========================
     # / Program Body
