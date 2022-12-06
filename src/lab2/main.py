@@ -20,19 +20,21 @@ np.random.seed(int(time.time()))
 
 def k(p_1, p_2):
     # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
+    dzero = (p_2[0] - p_1[0])
 
-    return (p_2[1] - p_1[1]) / (p_2[0] - p_1[0])
+    return ((p_2[1] - p_1[1]) / dzero) if dzero != 0 else 1
 
 
 def b(p_1, p_2):
     # Уравнение линии (y = kx + b) по двум точкам p_1, p_2
+    dzero = (p_2[0] - p_1[0])
 
-    return (p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])
+    return ((p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])) if dzero != 0 else 0
 
 
 def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, step_x=0):
     """
-    Вернуть формулу (от угла fi) прямой
+    Вернуть формулу (заивисимо от угла fi) прямой
 
     :param k_line:
     :param b_line:
@@ -45,7 +47,7 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
     :param step_x:
     """
     if not step_x:
-        step_x = (x_max - x_min) / 20
+        step_x = abs((x_max - x_min) / 20)
 
     # Вращение прямой относительно точки пересечения
     # Общее уравнение прямой https://stackoverflow.com/questions/27442437/rotate-a-line-by-a-given-angle
@@ -131,6 +133,86 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
         return k_rotate, b_rotate, left_x, left_y, right_x, right_y
 
     return get_line_rotate_formula
+
+
+def offset_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, accuracy_step=0):
+    # Уравнение перепендикуляра к середине
+    k_normal = k_line
+    b_normal = b_line
+
+    if not accuracy_step:
+        accuracy_step = abs((x_max - x_min) / 50)
+
+    def b_offset(xx, yy): return (yy * r_point[0] - xx * ((r_point[0] - xx) * k_normal + yy)) / (r_point[0] - xx)
+
+    def get_line_offset_formula(step_x):
+
+        _offset_x = o_point[0] + step_x
+        b1 = b_offset(_offset_x, o_point[1])  # k_normal * left_x + b1
+
+        def formul(xx): return k_normal * xx + b1
+
+        # "Левая" часть, возрастание и убывание функций
+
+        left_x = x_min
+        left_y = formul(left_x)
+
+        if left_y > y_max:
+            while left_y > y_max:
+                left_x += accuracy_step
+                left_y = formul(left_x)
+
+        elif left_y < y_min:
+            while left_y < y_min:
+                left_x += accuracy_step
+                left_y = formul(left_x)
+
+        if left_y < y_min:
+            left_x = x_max
+            left_y = formul(left_x)
+            while left_y < y_min:
+                left_x -= accuracy_step
+                left_y = formul(left_x)
+
+        elif left_y > y_max:
+            left_x = x_max
+            left_y = formul(left_x)
+            while left_y > y_max:
+                left_x += accuracy_step
+                left_y = formul(left_x)
+
+        # "Правая" часть, возрастание и убывание функций
+
+        right_x = x_max
+        right_y = formul(right_x)
+
+        if right_y < y_min:
+            while right_y < y_min:
+                right_x -= accuracy_step
+                right_y = formul(right_x)
+
+        elif right_y > y_max:
+            while right_y > y_max:
+                right_x -= accuracy_step
+                right_y = formul(right_x)
+
+        if right_y > y_max:
+            right_x = x_min
+            right_y = formul(right_x)
+            while right_y > y_max:
+                right_x += accuracy_step
+                right_y = formul(right_x)
+
+        elif right_y < y_min:
+            right_x = x_min
+            right_y = formul(right_x)
+            while right_y < y_min:
+                right_x -= accuracy_step
+                right_y = formul(right_x)
+
+        return k_normal, b1, left_x, left_y, right_x, right_y
+
+    return get_line_offset_formula
 
 
 class Image:
@@ -419,6 +501,11 @@ class CloudComparator:
 
         tgnorm_r2 = np.round((getattr(self.cloud2, fe_r2[1])['M'] - getattr(self.cloud1, fe_r2[1])['M']) / (getattr(self.cloud2, fe_r2[0])['M'] - getattr(self.cloud1, fe_r2[0])['M']), 4)
         norm_r2_len = (self.mid_len * tgnorm_r2)
+        if not norm_r2_len:
+            norm_r2_len = self.get_between_point_len(
+                Image(**{feature_name1: getattr(self.cloud1, feature_name1)['M'], feature_name2: getattr(self.cloud1, feature_name2)['M']}),
+                Image(**{feature_name1: getattr(self.cloud2, feature_name1)['M'], feature_name2: getattr(self.cloud2, feature_name2)['M']}),
+            ) / 2
 
         coords = {}
 
@@ -536,7 +623,7 @@ class CloudComparator:
 
         return images, circle_equations
 
-    def get_probability_midlane_points(self, margin_of_error=0.0005, ax=None, fi=0):
+    def get_probability_midlane_points(self, margin_of_error=0.0005, ax=None, fi=0, offset_from_O=0):
         """
         Нарисовать линию разделения между облаками на основе минимизации вероятности pdf
 
@@ -658,7 +745,7 @@ class CloudComparator:
                     cloud_minus_points.append((cloud_num, 'minus', Image(**coords_top_minus)))
 
         # Вычислим комбинациями минимальное расстояние
-        minlen = max(M1max, M2max)
+        minlen = None
         cloud_lens = {}
         for points in itertools.permutations(cloud_plus_points + cloud_minus_points, 2):
 
@@ -672,7 +759,7 @@ class CloudComparator:
 
             ml = self.get_between_point_len(points[0][2], points[1][2])
             cloud_lens[str(ml)] = (points[0][2], points[1][2])
-            if ml < minlen:
+            if minlen is None or ml < minlen:
                 minlen = ml
 
         # Координаты середины между пересечениями
@@ -779,7 +866,7 @@ class CloudComparator:
 
         return images, line_equations
 
-    def test_point_sepline(self, testpoint: Image, O_point: Image, k_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1) -> int:
+    def _test_point_sepline_alpha(self, testpoint: Image, O_point: Image, k_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1):
         """
         С помощьюф функции math.atan2 и уравнению по паралельному переносу и смещению системы координат
         вычислим (угол) квадрант в который попадает линия соединяющая тестируемую точку со смещенным началом координат
@@ -835,6 +922,44 @@ class CloudComparator:
 
         return ret_alfas
 
+    def classify_image(self, testpoint: Image, O_point: Image, k_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1):
+        """
+        Вернуть класс облака которому принадлежит точка
+
+
+        :param testpoint:
+        :param O_point:
+        :param k_sep_line:
+        :param sep_line_equations:
+        :param left_cloud_num:
+        """
+        alfas = self._test_point_sepline_alpha(testpoint, O_point, k_sep_line=k_sep_line, sep_line_equations=sep_line_equations, left_cloud_num=left_cloud_num)
+
+        verdicts = []
+        for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
+            x, y = feature_r2
+
+            alfa = round(alfas[(x, y)]['alfa'], 2)
+            if 180 > alfa > 90 or -180 < alfa < -90:
+                if left_cloud_num == 1:
+                    verdicts.append(1)
+                else:
+                    verdicts.append(2)
+
+            elif 90 > alfa > 0 or -90 < alfa < 0:
+                if left_cloud_num == 1:
+                    verdicts.append(2)
+                else:
+                    verdicts.append(1)
+
+        cloud1_count = verdicts.count(1)
+        cloud2_count = verdicts.count(2)
+
+        if cloud1_count > cloud2_count:
+            return self.cloud1.klass or 1
+        else:
+            return self.cloud2.klass or 2
+
     @staticmethod
     def get_feature_iterator_from_images(images, feature_name):
         for im in images:
@@ -844,16 +969,24 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
+    #===============================================================================
+    #     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
+    #     cloud1.fill_cloud_Rn_dimension()
+    #
+    #     cloud2 = ClassNormalCloud(100, x={'M': 700, 'D': 8000}, y={'M': 700, 'D': 1000}, klass=2)
+    #     cloud2.fill_cloud_Rn_dimension()
+    #
+    #     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
+    #     cloud1.fill_cloud_Rn_dimension()
+    #
+    #     cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
+    #     cloud2.fill_cloud_Rn_dimension()
+    #===============================================================================
+
     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 700, 'D': 8000}, y={'M': 700, 'D': 1000}, klass=2)
-    cloud2.fill_cloud_Rn_dimension()
-
-    cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
-    cloud1.fill_cloud_Rn_dimension()
-
-    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
+    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 500, 'D': 1000}, klass=2)
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -883,13 +1016,13 @@ if __name__ == "__main__":
     # Линия соединяющие центры облаков
     lM = mlines.Line2D([cloud1.x['M'], cloud2.x['M']], [cloud1.y['M'], cloud2.y['M']], color="#000", linestyle="--", marker="x")
     ax.add_line(lM)
-    ax.annotate(f'({cloud1.x["M"]},\n {cloud1.y["M"]})',
+    ax.annotate(f'({cloud1.x["M"]},\n {cloud1.y["M"]}):{cloud1.klass}',
                 (cloud1.x["M"], cloud1.y["M"]),
                 textcoords="offset points",
                 xytext=(0, 10),
                 ha='center',
                 color='blue', backgroundcolor="#eae1e196")
-    ax.annotate(f'({cloud2.x["M"]},\n {cloud2.y["M"]})',
+    ax.annotate(f'({cloud2.x["M"]},\n {cloud2.y["M"]}):{cloud2.klass}',
                 (cloud2.x["M"], cloud2.y["M"]),
                 textcoords="offset points",
                 xytext=(0, 10),
@@ -923,7 +1056,35 @@ if __name__ == "__main__":
     # ========================
 
     # Разделение через минимум Пло́тности вероя́тности
+    sep_plane_images, circle_equations1 = comparator.get_probability_circle_points(1, ax=ax)
 
+    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+    for i in range(1, len(sep_plane_images), 1):
+        ax.add_line(
+            mlines.Line2D(
+                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+                color="#e6188c",
+                marker="x")
+        )
+
+    sep_plane_images, circle_equations2 = comparator.get_probability_circle_points(2, ax=ax)
+
+    sep_features_x1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'x')))
+    sep_features_y1 = list(itertools.chain(CloudComparator.get_feature_iterator_from_images(sep_plane_images, 'y')))
+    for i in range(1, len(sep_plane_images), 1):
+        ax.add_line(
+            mlines.Line2D(
+                [sep_plane_images[i - 1].x, sep_plane_images[i].x],
+                [sep_plane_images[i - 1].y, sep_plane_images[i].y],
+                color="#44ec86",
+                marker="x")
+        )
+
+    # Разделение через минимум Пло́тности вероя́тности
+
+    # Линия перпендикулярная
     sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax)
     sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
     sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
@@ -936,31 +1097,52 @@ if __name__ == "__main__":
             marker="x")
     )
 
-    for fi_ in range(0, 181, 10):
-        le = line_equations[('x', 'y', 0)]
-        k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
-                                                                                               le['b'],
-                                                                                               (le['center_point'].x, le['center_point'].y),  # o_point
-                                                                                               (le['x_r_point'], le['y_r_point']),  # r_point
-                                                                                               le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
-                                                                                               )(fi_)
-        ax.add_line(
-            mlines.Line2D(
-                [left_x, right_x],
-                [left_y, right_y],
-                color="blue",
-                marker="",
-                linestyle=(0, (3, 5, 1, 5, 1, 5)),
-                linewidth=0.5,
-            )
-        )
+#===============================================================================
+#     # Дополнительные построения
+#     le = line_equations[('x', 'y', 0)]
+#     for fi_ in range(0, 181, 10):
+#         k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
+#                                                                                                le['b'],
+#                                                                                                (le['center_point'].x, le['center_point'].y),  # o_point
+#                                                                                                (le['x_r_point'], le['y_r_point']),  # r_point
+#                                                                                                le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
+#                                                                                                )(fi_)
+#         ax.add_line(
+#             mlines.Line2D(
+#                 [left_x, right_x],
+#                 [left_y, right_y],
+#                 color="blue",
+#                 marker="",
+#                 linestyle=(0, (3, 5, 1, 5, 1, 5)),
+#                 linewidth=0.5,
+#             )
+#         )
+#
+#     step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
+#     for offset in range(-10 * step_o, 10 * step_o, step_o):
+#         k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
+#                                                                                                                    le['b'],
+#                                                                                                                    (le['center_point'].x, le['center_point'].y),  # o_point
+#                                                                                                                    (le['x_r_point'], le['y_r_point']),  # r_point
+#                                                                                                                    le['x_min'], le['x_max'], le['y_min'], le['y_max']
+#                                                                                                                    )(offset)
+#         ax.add_line(
+#             mlines.Line2D(
+#                 [x_offs_left, x_offs_right],
+#                 [y_offs_left, y_offs_right],
+#                 color="green",
+#                 marker="",
+#                 linestyle='--',
+#                 linewidth=0.5,
+#             )
+#         )
+#===============================================================================
 
     # Тестирование точки. Подпись угла
     testpoint = cloud2._images[0]
-    alfas = comparator.test_point_sepline(testpoint, line_equations[('x', 'y', 0)]['center_point'])
+    testklass = comparator.classify_image(testpoint, line_equations[('x', 'y', 0)]['center_point'], left_cloud_num=2)
     xtest = round(testpoint.x, 2)
     ytest = round(testpoint.y, 2)
-    alfa = round(alfas[('x', 'y')]['alfa'], 2)
     ax.add_line(
         mlines.Line2D(
             [line_equations[('x', 'y', 0)]['center_point'].x, testpoint.x],
@@ -969,7 +1151,7 @@ if __name__ == "__main__":
             marker="x")
     )
 
-    ax.annotate(f'({xtest}, {ytest}, угол {alfa})',
+    ax.annotate(f'({xtest}, {ytest}, класс {testklass})',
                 (testpoint.x, testpoint.y),
                 textcoords="offset points",
                 xytext=(0, 10),
