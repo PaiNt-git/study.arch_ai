@@ -1032,7 +1032,7 @@ if __name__ == "__main__":
     cloud1 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=1)
     cloud1.fill_cloud_Rn_dimension()
 
-    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 500, 'D': 1000}, klass=2)
+    cloud2 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=2)
     cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
@@ -1093,7 +1093,7 @@ if __name__ == "__main__":
 
     # Координаты точка отрезка соединяющего середину и перпендикуляр
     normal_point = comparator.get_normal_image_r2_main('x', 'y')
-    lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x")
+    lnorm = mlines.Line2D([mid_point.x, normal_point.x], [mid_point.y, normal_point.y], color="green", linestyle="-", marker="x", linewidth=0.8, )
     ax.add_line(lnorm)
     # / Координаты точка отрезка соединяющего середину и перпендикуляр
 
@@ -1113,7 +1113,8 @@ if __name__ == "__main__":
             sep_features_x1,
             sep_features_y1,
             color="red",
-            marker="x")
+            linewidth=2.1,
+            marker="")
     )
 
 #===============================================================================
@@ -1158,7 +1159,7 @@ if __name__ == "__main__":
 #===============================================================================
 
     # Тестирование точки. Подпись угла
-    testpoint = cloud2._images[0]
+    testpoint = random.choice((cloud1._images[0], cloud2._images[0]))
     testklass = comparator.classify_image(testpoint, line_equations[('x', 'y', 0)]['center_point'], left_cloud_num=2)
     xtest = round(testpoint.x, 2)
     ytest = round(testpoint.y, 2)
@@ -1172,12 +1173,13 @@ if __name__ == "__main__":
             marker="x")
     )
 
-    ax.annotate(f'({xtest}, {ytest}, класс {testklass})',
+    ax.annotate(f'({xtest},\n{ytest}),\nкласс {testklass}',
                 (testpoint.x, testpoint.y),
                 textcoords="offset points",
                 xytext=(0, 10),
                 ha='center',
-                color='purple', backgroundcolor="#eae1e196")
+                color='#83017b', backgroundcolor="#cea7a7db",
+                )
 
     # ========================
     # / Program Body
