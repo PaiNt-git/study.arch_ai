@@ -619,6 +619,7 @@ class CloudComparator:
                     'k': k_endnormal,
                     'b': b_endnormal,
                     f'{y}': lambda xx: k_endnormal * xx + b_endnormal,
+                    'center_point': midinm,
                 }
                 line_equations[(x, y, 0)] = _equations
 
@@ -739,6 +740,58 @@ class CloudComparator:
 
         return images, line_equations
 
+    def test_point_sepline(self, testpoint: Image, O_point: Image, k_sep_line=None, b_sep_line=None, sep_line_equations: dict=None, left_cloud_num=1) -> int:
+        """
+        С помощьюф функции math.atan2 и уравнению по паралельному переносу и смещению системы координат
+        вычислим (угол) квадрант в который попадает линия соединяющая тестируемую точку со смещенным началом координат
+        http://www.pm298.ru/dekart.php
+
+        :param testpoint:
+        :param sep_line_equations: словарь line_equations из функции выше
+        :param left_cloud_num:
+        """
+        if not sep_line_equations:
+            sep_line_equations = {}
+
+        ret_alfas = {}
+
+        for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
+            x, y = feature_r2
+
+            O_x, O_y = getattr(O_point, x), getattr(O_point, y)
+            test_x, tesy_y = getattr(testpoint, x), getattr(testpoint, y)
+
+            x1_m = getattr(self.cloud1, x)['M']
+            y1_m = getattr(self.cloud1, y)['M']
+            x2_m = getattr(self.cloud2, x)['M']
+            y2_m = getattr(self.cloud2, y)['M']
+
+            not_has_features = [f for f in self.cloud1.features_names if f not in (x, y)]
+
+            # Уравнение линии соединения
+            k_base = k((x1_m, y1_m), (x2_m, y2_m))
+            b_base = b((x1_m, y1_m), (x2_m, y2_m))
+
+            alfa_base = math.atan(k_base)
+
+            # Уравнение x_off, y_off для координат относительно смещенных координат
+            def x_off(xx, yy): return ((xx - O_x) * math.cos(alfa_base) + (yy - O_y) * math.sin(alfa_base))
+
+            def y_off(xx, yy): return (-(xx - O_x) * math.sin(alfa_base) + (yy - O_y) * math.cos(alfa_base))
+
+            alfa_off = math.degrees(math.atan2(y_off(test_x, tesy_y), x_off(test_x, tesy_y)))
+
+            if not (x, y) in ret_alfas:
+                _equations = {
+                    f'{x}_off': x_off,
+                    f'{y}_off': y_off,
+
+                    'alfa': alfa_off,
+                }
+                ret_alfas[(x, y)] = _equations
+
+        return ret_alfas
+
     @staticmethod
     def get_feature_iterator_from_images(images, feature_name):
         for im in images:
@@ -855,6 +908,27 @@ if __name__ == "__main__":
             color="red",
             marker="x")
     )
+
+    # Тестирование точки. Подпись угла
+    testpoint = cloud2._images[0]
+    alfas = comparator.test_point_sepline(testpoint, line_equations[('x', 'y', 0)]['center_point'])
+    xtest = round(testpoint.x, 2)
+    ytest = round(testpoint.y, 2)
+    alfa = round(alfas[('x', 'y')]['alfa'], 2)
+    ax.add_line(
+        mlines.Line2D(
+            [line_equations[('x', 'y', 0)]['center_point'].x, testpoint.x],
+            [line_equations[('x', 'y', 0)]['center_point'].y, testpoint.y],
+            color="pink",
+            marker="x")
+    )
+
+    ax.annotate(f'({xtest}, {ytest}, угол {alfa})',
+                (testpoint.x, testpoint.y),
+                textcoords="offset points",
+                xytext=(0, 10),
+                ha='center',
+                color='blue', backgroundcolor="#eae1e196")
 
     # ========================
     # / Program Body
