@@ -774,6 +774,10 @@ class CloudComparator:
 
             alfa_base = math.atan(k_base)
 
+            if k_sep_line:
+                alfa_sep = math.atan(k_sep_line)
+                alfa_base = alfa_sep - math.radians(90)
+
             # Уравнение x_off, y_off для координат относительно смещенных координат
             def x_off(xx, yy): return ((xx - O_x) * math.cos(alfa_base) + (yy - O_y) * math.sin(alfa_base))
 
