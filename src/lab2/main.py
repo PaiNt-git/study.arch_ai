@@ -30,6 +30,109 @@ def b(p_1, p_2):
     return (p_1[1] * p_2[0] - p_1[0] * p_2[1]) / (p_2[0] - p_1[0])
 
 
+def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, step_x=0):
+    """
+    Вернуть формулу (от угла fi) прямой
+
+    :param k_line:
+    :param b_line:
+    :param o_point:
+    :param r_point:
+    :param x_min:
+    :param x_max:
+    :param y_min:
+    :param y_max:
+    :param step_x:
+    """
+    if not step_x:
+        step_x = (x_max - x_min) / 20
+
+    # Вращение прямой относительно точки пересечения
+    # Общее уравнение прямой https://stackoverflow.com/questions/27442437/rotate-a-line-by-a-given-angle
+
+    atanrad = math.atan(k_line)
+
+    alfa = math.degrees(atanrad)
+
+    lenline = math.sqrt(math.pow((r_point[0] - o_point[0]), 2) + math.pow((r_point[1] - o_point[1]), 2))
+
+    def get_line_rotate_formula(fii):
+        betta = (alfa - fii)
+        betta = math.radians(betta)
+        x_rotate = lenline * math.cos(betta) + o_point[0]
+        y_rotate = lenline * math.sin(betta) + o_point[1]
+
+        k_rotate = k((o_point[0], o_point[1]), (x_rotate, y_rotate))
+        b_rotate = b((o_point[0], o_point[1]), (x_rotate, y_rotate))
+
+        def formul(xxx): return k_rotate * xxx + b_rotate
+
+        # "Левая" часть, возрастание и убывание функций
+
+        left_x = x_min
+        left_y = formul(left_x)
+
+        if left_y > y_max:
+            while left_y > y_max:
+                left_x += step_x
+                left_y = formul(left_x)
+
+        elif left_y < y_min:
+            while left_y < y_min:
+                left_x += step_x
+                left_y = formul(left_x)
+
+        if left_y < y_min:
+            left_x = x_max
+            left_y = formul(left_x)
+            while left_y < y_min:
+                left_x -= step_x
+                left_y = formul(left_x)
+
+        elif left_y > y_max:
+            left_x = x_max
+            left_y = formul(left_x)
+            while left_y > y_max:
+                left_x += step_x
+                left_y = formul(left_x)
+
+        # "Правая" часть, возрастание и убывание функций
+
+        right_x = x_max
+        right_y = formul(right_x)
+
+        if right_y < y_min:
+            while right_y < y_min:
+                right_x -= step_x
+                right_y = formul(right_x)
+
+        elif right_y > y_max:
+            while right_y > y_max:
+                right_x -= step_x
+                right_y = formul(right_x)
+
+        if right_y > y_max:
+            right_x = x_min
+            right_y = formul(right_x)
+            while right_y > y_max:
+                right_x += step_x
+                right_y = formul(right_x)
+
+        elif right_y < y_min:
+            right_x = x_min
+            right_y = formul(right_x)
+            while right_y < y_min:
+                right_x -= step_x
+                right_y = formul(right_x)
+
+        k_rotate = k((left_x, left_y), (right_x, right_y))
+        b_rotate = b((left_x, left_y), (right_x, right_y))
+
+        return k_rotate, b_rotate, left_x, left_y, right_x, right_y
+
+    return get_line_rotate_formula
+
+
 class Image:
     """
     Образ с произвольным набором признаков
@@ -637,96 +740,32 @@ class CloudComparator:
                 y: y2,
             })
 
-        # images.append(midinm)
-        # images.append(Image(**endnormal_coords[0]))
-        # images.append(Image(**endnormal_coords[1]))
-
         # Вращение прямой относительно точки пересечения
-        # Общее уравнение прямой https://stackoverflow.com/questions/27442437/rotate-a-line-by-a-given-angle
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
             x, y = feature_r2
 
-            A = line_equations[(x, y, 0)]['k']
-            B = -1
-            C = line_equations[(x, y, 0)]['b']
+            k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(line_equations[(x, y, 0)]['k'],
+                                                                                                   line_equations[(x, y, 0)]['b'],
+                                                                                                   (getattr(line_equations[(x, y, 0)]['center_point'], x), getattr(line_equations[(x, y, 0)]['center_point'], y)),  # o_point
+                                                                                                   (endnormal_coords[0][x], endnormal_coords[0][y]),  # r_point
+                                                                                                   x_min, x_max, y_min, y_max, step_x
+                                                                                                   )(fi)
 
-            atanrad = math.atan(A)
+            line_equations[(x, y, 0)][f'{x}_r_point'] = endnormal_coords[0][x]
+            line_equations[(x, y, 0)][f'{y}_r_point'] = endnormal_coords[0][y]
 
-            alfa = math.degrees(atanrad)
+            line_equations[(x, y, 0)][f'{x}_min'] = x_min
+            line_equations[(x, y, 0)][f'{x}_max'] = x_max
+            line_equations[(x, y, 0)][f'{y}_min'] = y_min
+            line_equations[(x, y, 0)][f'{y}_max'] = y_max
+            line_equations[(x, y, 0)][f'step_{x}'] = step_x
 
-            lenline = self.get_between_point_len(midinm, Image(**endnormal_coords[0]))
-
-            def get_line_rotate_formula(xx, fii=fi):
-                nonlocal line_equations
-                betta = (alfa - fii)
-                betta = math.radians(betta)
-                x_rotate = lenline * math.cos(betta) + getattr(midinm, x)
-                y_rotate = lenline * math.sin(betta) + getattr(midinm, y)
-
-                k_rotate = k((getattr(midinm, x), getattr(midinm, y)), (x_rotate, y_rotate))
-                b_rotate = b((getattr(midinm, x), getattr(midinm, y)), (x_rotate, y_rotate))
-
-                line_equations[(x, y, 0)][f'{y}_rotate'] = lambda xxx: k_rotate * xxx + b_rotate
-
-                return line_equations[(x, y, 0)][f'{y}_rotate'](xx)
-
-            # "Левая" часть, возрастание и убывание функций
-
-            left_x = x_min
-            left_y = get_line_rotate_formula(left_x)
-
-            if left_y > y_max:
-                while left_y > y_max:
-                    left_x += step_x
-                    left_y = get_line_rotate_formula(left_x)
-
-            elif left_y < y_min:
-                while left_y < y_min:
-                    left_x += step_x
-                    left_y = get_line_rotate_formula(left_x)
-
-            if left_y < y_min:
-                left_x = x_max
-                left_y = get_line_rotate_formula(left_x)
-                while left_y < y_min:
-                    left_x -= step_x
-                    left_y = get_line_rotate_formula(left_x)
-
-            elif left_y > y_max:
-                left_x = x_max
-                left_y = get_line_rotate_formula(left_x)
-                while left_y > y_max:
-                    left_x += step_x
-                    left_y = get_line_rotate_formula(left_x)
-
-            # "Правая" часть, возрастание и убывание функций
-
-            right_x = x_max
-            right_y = get_line_rotate_formula(right_x)
-
-            if right_y < y_min:
-                while right_y < y_min:
-                    right_x -= step_x
-                    right_y = get_line_rotate_formula(right_x)
-
-            elif right_y > y_max:
-                while right_y > y_max:
-                    right_x -= step_x
-                    right_y = get_line_rotate_formula(right_x)
-
-            if right_y > y_max:
-                right_x = x_min
-                right_y = get_line_rotate_formula(right_x)
-                while right_y > y_max:
-                    right_x += step_x
-                    right_y = get_line_rotate_formula(right_x)
-
-            elif right_y < y_min:
-                right_x = x_min
-                right_y = get_line_rotate_formula(right_x)
-                while right_y < y_min:
-                    right_x -= step_x
-                    right_y = get_line_rotate_formula(right_x)
+            line_equations[(x, y, 0)]['k_rotate'] = k_rotate
+            line_equations[(x, y, 0)]['b_rotate'] = b_rotate
+            line_equations[(x, y, 0)][f'left_{x}'] = left_x
+            line_equations[(x, y, 0)][f'left_{y}'] = left_y
+            line_equations[(x, y, 0)][f'right_{x}'] = right_x
+            line_equations[(x, y, 0)][f'right_{y}'] = right_y
 
             images.append(Image(**{
                 x: left_x,
@@ -885,22 +924,6 @@ if __name__ == "__main__":
 
     # Разделение через минимум Пло́тности вероя́тности
 
-    for fi_ in range(0, 181, 10):
-        sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax, fi=fi_)
-        sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
-        sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
-
-        ax.add_line(
-            mlines.Line2D(
-                sep_features_x1,
-                sep_features_y1,
-                color="blue",
-                marker="",
-                linestyle=(0, (3, 5, 1, 5, 1, 5)),
-                linewidth=0.5,
-            )
-        )
-
     sep_points, line_equations = comparator.get_probability_midlane_points(ax=ax)
     sep_features_x1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'x'))
     sep_features_y1 = list(CloudComparator.get_feature_iterator_from_images(sep_points, 'y'))
@@ -912,6 +935,25 @@ if __name__ == "__main__":
             color="red",
             marker="x")
     )
+
+    for fi_ in range(0, 181, 10):
+        le = line_equations[('x', 'y', 0)]
+        k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
+                                                                                               le['b'],
+                                                                                               (le['center_point'].x, le['center_point'].y),  # o_point
+                                                                                               (le['x_r_point'], le['y_r_point']),  # r_point
+                                                                                               le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
+                                                                                               )(fi_)
+        ax.add_line(
+            mlines.Line2D(
+                [left_x, right_x],
+                [left_y, right_y],
+                color="blue",
+                marker="",
+                linestyle=(0, (3, 5, 1, 5, 1, 5)),
+                linewidth=0.5,
+            )
+        )
 
     # Тестирование точки. Подпись угла
     testpoint = cloud2._images[0]
