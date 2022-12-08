@@ -1,23 +1,48 @@
+import itertools
 import math
 import random
-import itertools
-import time
 import sys
+import time
+import functools
 
-import scipy.stats as sps
-import numpy as np
-import pandas as pd
-
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-
-from numpy.core.records import ndarray
-from sklearn.svm import SVC
-import cmath
-from numpy import inf, nan, isnan
 from collections import defaultdict
 
+from numpy import inf, nan, isnan
+from numpy.core.records import ndarray
+from sklearn.svm import SVC
+
+import matplotlib.lines as mlines
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy.stats as sps
+
+
 np.random.seed(int(time.time()))
+
+
+def memoize_func(func):
+    cache = func.cache = {}
+
+    @functools.wraps(func)
+    def memoizer(*args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
+    return memoizer
+
+
+def memoize_method(func):
+    cache = func.cache = {}
+
+    @functools.wraps(func)
+    def memoizer(self, *args, **kwargs):
+        key = str(args) + str(kwargs)
+        if key not in cache:
+            cache[key] = func(self, *args, **kwargs)
+        return cache[key]
+    return memoizer
 
 
 def k(p_1, p_2):
@@ -61,14 +86,14 @@ def pretty_line_y(b_, y_min, y_max, y):
     return y
 
 
-def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, step_x=0):
+def rotate_line_equation(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, step_x=0):
     """
-    Вернуть формулу (заивисимо от угла fi) прямой
+    Вернуть формулу (заивисимо от угла fi) которая вращаяется относительно o_point, r_point - точка на этой прямой
 
     :param k_line:
     :param b_line:
-    :param o_point:
-    :param r_point:
+    :param o_point: (x, y)
+    :param r_point: (x, y)
     :param x_min:
     :param x_max:
     :param y_min:
@@ -176,6 +201,20 @@ def rotate_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_m
 
 
 def offset_line_equation_and_points(k_line, b_line, o_point, r_point, x_min, x_max, y_min, y_max, accuracy_step=0):
+    """
+    Смещение прямой относительно o_point, r_point вторая точка лежащая на прямой
+
+    :param k_line:
+    :param b_line:
+    :param o_point: (x, y)
+    :param r_point: (x, y)
+    :param x_min:
+    :param x_max:
+    :param y_min:
+    :param y_max:
+    :param accuracy_step:
+    """
+
     # Уравнение перепендикуляра к середине
     k_normal = k_line
     b_normal = b_line
@@ -271,6 +310,8 @@ class Image:
         :param klass: Класс образа если задан
 
         features: распаковка набора признаков со значениями, значения должные быть действительными числами
+
+        например можно вызывать класс Image(x=1, y=2)
         """
         self.klass = klass
 
@@ -293,7 +334,7 @@ class Image:
 
 class ClassNormalCloud:
     """
-    Облако образов в пространстве признаков
+    Множество образов в пространстве признаков
     """
 
     def __init__(self, N, klass=None, **Md_ft):
@@ -373,7 +414,7 @@ class ClassNormalCloud:
 
     def fill_cloud_Rn_dimension(self):
         """
-        Заполнение облака по нормальному распределению исходя из размерности облака
+        Заполнение множества по нормальному распределению исходя из размерности облака
         """
         del self._images
         self._images = []
@@ -397,28 +438,30 @@ class ClassNormalCloud:
             ftu = {k: v for k, v in itertools.zip_longest(self.features_names, features)}
             self._images.append(Image(klass=self.klass, **ftu))
 
-    def pdf_Rn_dimension_from_destimator(self, x: Image, kernel_density_estimator):
-        """
-        Пло́тность вероя́тности (probability density function - PDF) - используя дестиматор
-
-        scipy.stats.gaussian_kde
-        KernelDensity
-
-        https://scikit-learn.org/stable/modules/density.html
-        https://stackoverflow.com/questions/52160088/python-fast-kernel-density-estimation-probability-density-function
-
-        from fastkde.fastKDE import pdf
-
-        def get_pdf(data):
-            y, x = pdf(data)
-            return x, y
-
-        :param x:
-        """
-        if x.dimensionality != self.dimensionality:
-            raise ValueError("Размерность образа и облака не соотносятся")
-
-        return None
+#===============================================================================
+#     def pdf_Rn_dimension_from_destimator(self, x: Image, kernel_density_estimator):
+#         """
+#         Пло́тность вероя́тности (probability density function - PDF) - используя дестиматор
+#
+#         scipy.stats.gaussian_kde
+#         KernelDensity
+#
+#         https://scikit-learn.org/stable/modules/density.html
+#         https://stackoverflow.com/questions/52160088/python-fast-kernel-density-estimation-probability-density-function
+#
+#         from fastkde.fastKDE import pdf
+#
+#         def get_pdf(data):
+#             y, x = pdf(data)
+#             return x, y
+#
+#         :param x:
+#         """
+#         if x.dimensionality != self.dimensionality:
+#             raise ValueError("Размерность образа и облака не соотносятся")
+#
+#         return None
+#===============================================================================
 
     def pdf_Rn_dimension(self, x: Image):
         """
@@ -508,10 +551,41 @@ class CloudComparator:
 
         return math.sqrt(sum(quads))
 
+    @memoize_method
+    def get_x_y_min_max_and_m(self, x, y):
+        """
+        Вычилить максмумы один раз
+
+        :param x:
+        :param y:
+        """
+
+        # Мат. ожидания множеств
+        x1_m = getattr(self.cloud1, x)['M']
+        y1_m = getattr(self.cloud1, y)['M']
+        x2_m = getattr(self.cloud2, x)['M']
+        y2_m = getattr(self.cloud2, y)['M']
+
+        # Вычислим минимальные и максимальные x
+        x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+        x_min = x_min - x_min * 0.1
+
+        x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
+        x_max = x_max + x_max * 0.1
+
+        y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+        y_min = y_min - y_min * 0.1
+
+        y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
+        y_max = y_max + y_max * 0.1
+
+        return x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max
+
     @property
+    @memoize_method
     def mid_image(self) -> Image:
         """
-        Точка на середине отрезка соединяющего облака
+        Точка на середине отрезка соединяющего М множество
 
         """
         coords = {}
@@ -522,6 +596,7 @@ class CloudComparator:
         return Image(**coords)
 
     @property
+    @memoize_method
     def mid_len(self):
         """
         Длина серединного отрезка
@@ -534,7 +609,7 @@ class CloudComparator:
 
     def get_normal_image_r2_main(self, feature_name1, feature_name2, znak='+', ) -> Image:
         """
-        Координаты нормали к отрезку соединяющему облака
+        Координаты нормали к отрезку соединяющему множества
 
         :param feature_name1: какой признак взять за x
         :param feature_name2: какой признак взять за y
@@ -578,9 +653,9 @@ class CloudComparator:
 
     def get_probability_circle_points(self, cloud_num=1, margin_of_error=0.0005, ax=None):
         """
-        Нарисовать линию (окружность) разделения между облаками
+        Нарисовать линию (окружность) разделения между множествами
 
-        :param cloud_num: относительно какого облака рисовать
+        :param cloud_num: относительно какого множества рисовать
         :param margin_of_error:
         :param ax:
         """
@@ -714,25 +789,9 @@ class CloudComparator:
                 x_m = getattr(current_cloud, x)['M']
                 y_m = getattr(current_cloud, y)['M']
 
-                x1_m = getattr(self.cloud1, x)['M']
-                y1_m = getattr(self.cloud1, y)['M']
-                x2_m = getattr(self.cloud2, x)['M']
-                y2_m = getattr(self.cloud2, y)['M']
+                x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = self.get_x_y_min_max_and_m(x, y)
 
                 not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
-
-                # Вычислим минимальные и максимальные x
-                x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-                x_min = x_min - x_min * 0.1
-
-                x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-                x_max = x_max + x_max * 0.1
-
-                y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-                y_min = y_min - y_min * 0.1
-
-                y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-                y_max = y_max + y_max * 0.1
 
                 # шаги изменений для алгоритма
                 step_x = x_m / current_step_accuracy
@@ -885,10 +944,7 @@ class CloudComparator:
             x_m = getattr(current_cloud, x)['M']
             y_m = getattr(current_cloud, y)['M']
 
-            x1_m = getattr(self.cloud1, x)['M']
-            y1_m = getattr(self.cloud1, y)['M']
-            x2_m = getattr(self.cloud2, x)['M']
-            y2_m = getattr(self.cloud2, y)['M']
+            x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = self.get_x_y_min_max_and_m(x, y)
 
             not_has_features = [f for f in current_cloud.features_names if f not in (x, y)]
 
@@ -927,12 +983,12 @@ class CloudComparator:
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
             x, y = feature_r2
 
-            k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(line_equations[(x, y, 0)]['k'],
-                                                                                                   line_equations[(x, y, 0)]['b'],
-                                                                                                   (getattr(line_equations[(x, y, 0)]['center_point'], x), getattr(line_equations[(x, y, 0)]['center_point'], y)),  # o_point
-                                                                                                   (endnormal_coords[0][x], endnormal_coords[0][y]),  # r_point
-                                                                                                   x_min, x_max, y_min, y_max, step_x
-                                                                                                   )(fi)
+            k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation(line_equations[(x, y, 0)]['k'],
+                                                                                        line_equations[(x, y, 0)]['b'],
+                                                                                        (getattr(line_equations[(x, y, 0)]['center_point'], x), getattr(line_equations[(x, y, 0)]['center_point'], y)),  # o_point
+                                                                                        (endnormal_coords[0][x], endnormal_coords[0][y]),  # r_point
+                                                                                        x_min, x_max, y_min, y_max, step_x
+                                                                                        )(fi)
             # Если задано смещение offset_from_O
             if offset_from_O:
                 k_rotate, b_rotate, left_x, left_y, right_x, right_y = offset_line_equation_and_points(k_rotate,
@@ -987,28 +1043,12 @@ class CloudComparator:
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
             x, y = feature_r2
 
-            x1_m = getattr(self.cloud1, x)['M']
-            y1_m = getattr(self.cloud1, y)['M']
-            x2_m = getattr(self.cloud2, x)['M']
-            y2_m = getattr(self.cloud2, y)['M']
+            x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = self.get_x_y_min_max_and_m(x, y)
 
             if not left_cloud_num:
                 left_cloud_num_ = 1 if x1_m <= x2_m else 2
 
             not_has_features = [f for f in self.cloud1.features_names if f not in (x, y)]
-
-            # Вычислим минимальные и максимальные x
-            x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_min = x_min - x_min * 0.1
-
-            x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_max = x_max + x_max * 0.1
-
-            y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-            y_min = y_min - y_min * 0.1
-
-            y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-            y_max = y_max + y_max * 0.1
 
             # Уравнение линии соединения
             k_base = k((x1_m, y1_m), (x2_m, y2_m))
@@ -1027,7 +1067,7 @@ class CloudComparator:
             # Координаты точка отрезка соединяющего середину и перпендикуляр
             normal_point = self.get_normal_image_r2_main(x, y)
             k_normal = k((getattr(mid_point, x), getattr(mid_point, y)), (getattr(normal_point, x), getattr(normal_point, y)))
-            b_normal = b((getattr(mid_point, x), getattr(mid_point, y)), (getattr(normal_point, x), getattr(normal_point, y)))
+            ### b_normal = b((getattr(mid_point, x), getattr(mid_point, y)), (getattr(normal_point, x), getattr(normal_point, y)))
 
             # Угол наклона нормали
             alfa_normal = math.atan(k_normal)
@@ -1037,7 +1077,7 @@ class CloudComparator:
 
             # Угол смещения
             delta_fi = math.pi - alfa_normal - (math.pi - alfa_sep_O)
-            delta_fi_grad = math.degrees(math.pi - alfa_normal - (math.pi - alfa_sep_O))
+            ### delta_fi_grad = math.degrees(math.pi - alfa_normal - (math.pi - alfa_sep_O))
 
             # Уравнение x_off, y_off для координат относительно линии соединяющей
             def x_off(xx, yy): return ((xx - O_x) * math.cos(alfa_base) + (yy - O_y) * math.sin(alfa_base))
@@ -1050,7 +1090,7 @@ class CloudComparator:
             def y_off_delta_fi(xx, yy): return (-(xx - O_x) * math.sin(alfa_base + delta_fi) + (yy - O_y) * math.cos(alfa_base + delta_fi))
 
             # Угол смещения относительно перепендикуляра к разделяющей
-            alfa_off_normal = math.degrees(math.atan2(y_off(test_x, tesy_y), x_off(test_x, tesy_y)))
+            ### alfa_off_normal = math.degrees(math.atan2(y_off(test_x, tesy_y), x_off(test_x, tesy_y)))
 
             # Угол смещения относительно перепендикуляра к разделяющей  + delta_fi
             alfa_off_normal_delta_fi = math.degrees(math.atan2(y_off_delta_fi(test_x, tesy_y), x_off_delta_fi(test_x, tesy_y)))
@@ -1073,7 +1113,6 @@ class CloudComparator:
         :param testpoint:
         :param k_sep_line:
         :param b_sep_line:
-        :param sep_line_equations:
         :param left_cloud_num:
         """
         left_cloud_num_ = left_cloud_num
@@ -1084,10 +1123,7 @@ class CloudComparator:
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
             x, y = feature_r2
 
-            x1_m = getattr(self.cloud1, x)['M']
-            y1_m = getattr(self.cloud1, y)['M']
-            x2_m = getattr(self.cloud2, x)['M']
-            y2_m = getattr(self.cloud2, y)['M']
+            x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = self.get_x_y_min_max_and_m(x, y)
 
             if not left_cloud_num:
                 left_cloud_num_ = 1 if x1_m <= x2_m else 2
@@ -1125,11 +1161,11 @@ class CloudComparator:
         """
         Оптимизировать линию, смещая и поворачивая
 
-        :param training1:
-        :param training2:
+        :param training1: итерируемое образов для проверки
+        :param training2: итерируемое образов для проверки
         :param k_line:
         :param b_line:
-        :param r_point_im:
+        :param r_point_im: точка на прямой не лежащая на линии пересечения ее с соединяющей линией
         :param steps:
         :param left_cloud_num:
         """
@@ -1146,26 +1182,10 @@ class CloudComparator:
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
             x, y = feature_r2
 
-            x1_m = getattr(self.cloud1, x)['M']
-            y1_m = getattr(self.cloud1, y)['M']
-            x2_m = getattr(self.cloud2, x)['M']
-            y2_m = getattr(self.cloud2, y)['M']
+            x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = self.get_x_y_min_max_and_m(x, y)
 
             if not left_cloud_num:
                 left_cloud_num_ = 1 if x1_m <= x2_m else 2
-
-            # Вычислим минимальные и максимальные x
-            x_min = min(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_min = x_min - x_min * 0.1
-
-            x_max = max(itertools.chain(self.cloud1.get_feature_iterator(x), self.cloud2.get_feature_iterator(x)))
-            x_max = x_max + x_max * 0.1
-
-            y_min = min(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-            y_min = y_min - y_min * 0.1
-
-            y_max = max(itertools.chain(self.cloud1.get_feature_iterator(y), self.cloud2.get_feature_iterator(y)))
-            y_max = y_max + y_max * 0.1
 
             # Уравнение линии соединения
             k_base = k((x1_m, y1_m), (x2_m, y2_m))
@@ -1226,12 +1246,12 @@ class CloudComparator:
                     O_x = pretty_line_x(b_rot_off, (x1_m + x2_m) / 2, (b_rot_off - b_base) / (k_base - k_rot_off))
                     O_y = pretty_line_y(b_base, y_min, y_max, (k_base * O_x + b_base))
 
-                    k_rot_off_, b_rot_off_, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(k_rot_off,
-                                                                                                               b_rot_off,
-                                                                                                               (O_x, O_y),  # o_point
-                                                                                                               (r_x, r_y),  # r_point
-                                                                                                               x_min, x_max, y_min, y_max
-                                                                                                               )(fi_)
+                    k_rot_off_, b_rot_off_, left_x, left_y, right_x, right_y = rotate_line_equation(k_rot_off,
+                                                                                                    b_rot_off,
+                                                                                                    (O_x, O_y),  # o_point
+                                                                                                    (r_x, r_y),  # r_point
+                                                                                                    x_min, x_max, y_min, y_max
+                                                                                                    )(fi_)
 
                     k_rotate_r = round(k_rot_off_, 4)
                     b_rotate_r = round(b_rot_off_, 4)
@@ -1463,7 +1483,7 @@ if __name__ == "__main__":
     features_y2 = list(itertools.chain(cloud2.get_feature_iterator('y')))
 
     # Построение Координатной плоскости облака образов
-    fig, ax = plt.subplots(figsize=(10, 6), num='Облака образов')
+    fig, ax = plt.subplots(figsize=(10, 6), num='Множества образов')
 
     # Чтобы перпендикуляры были перпендикулярными
     ax.set_aspect('equal', adjustable='box')
