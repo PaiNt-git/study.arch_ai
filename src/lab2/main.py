@@ -1580,7 +1580,10 @@ if __name__ == "__main__":
     )
 
     # Тестирование точки. Подпись угла
-    for testpoint in [random.choice(cloud1._images[:5]), random.choice(cloud2._images[:5]), random.choice(cloud1._images[-5:]), random.choice(cloud2._images[-5:])]:  # random.choice((cloud1, cloud2))._images[:5]
+    for testpoint in [random.choice(cloud1._images[:5]),
+                      random.choice(cloud2._images[:5]),
+                      random.choice(cloud1._images[-5:]),
+                      random.choice(cloud2._images[-5:])]:
 
         testklass = comparator.classify_image(testpoint, k_sep_line=opt_le['k'], b_sep_line=opt_le['b'])
         xtest = round(testpoint.x, 2)
