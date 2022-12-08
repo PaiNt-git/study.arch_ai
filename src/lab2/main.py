@@ -1534,53 +1534,14 @@ if __name__ == "__main__":
         mlines.Line2D(
             sep_features_x1,
             sep_features_y1,
-            color="red",
-            linewidth=2.1,
+            color="black",
+            linestyle='dashdot',
+            linewidth=1.5,
             marker="")
     )
 
-#===============================================================================
-#     # Дополнительные построения
-#     for fi_ in range(0, 181, 10):
-#         k_rotate, b_rotate, left_x, left_y, right_x, right_y = rotate_line_equation_and_points(le['k'],
-#                                                                                                le['b'],
-#                                                                                                (le['center_point'].x, le['center_point'].y),  # o_point
-#                                                                                                (le['x_r_point'], le['y_r_point']),  # r_point
-#                                                                                                le['x_min'], le['x_max'], le['y_min'], le['y_max'], le['step_x']
-#                                                                                                )(fi_)
-#         ax.add_line(
-#             mlines.Line2D(
-#                 [left_x, right_x],
-#                 [left_y, right_y],
-#                 color="blue",
-#                 marker="",
-#                 linestyle=(0, (3, 5, 1, 5, 1, 5)),
-#                 linewidth=0.5,
-#             )
-#         )
-#
-#     step_o = int(abs(cloud1.x['M'] - cloud2.x['M']) / 20)
-#     for offset in range(-10 * step_o, 10 * step_o, step_o):
-#         k_normal, b_normal, x_offs_left, y_offs_left, x_offs_right, y_offs_right = offset_line_equation_and_points(le['k'],
-#                                                                                                                    le['b'],
-#                                                                                                                    (le['center_point'].x, le['center_point'].y),  # o_point
-#                                                                                                                    (le['x_r_point'], le['y_r_point']),  # r_point
-#                                                                                                                    le['x_min'], le['x_max'], le['y_min'], le['y_max']
-#                                                                                                                    )(offset)
-#         ax.add_line(
-#             mlines.Line2D(
-#                 [x_offs_left, x_offs_right],
-#                 [y_offs_left, y_offs_right],
-#                 color="green",
-#                 marker="",
-#                 linestyle='--',
-#                 linewidth=0.5,
-#             )
-#         )
-#===============================================================================
-
     # Линия оптимизированная
-    opt_sep_points, opt_line_equations = comparator.get_optimized_sep_line_points(cloud1._images, cloud2._images,
+    opt_sep_points, opt_line_equations = comparator.get_optimized_sep_line_points(cloud1._images[:200], cloud2._images[:200],
                                                                                   le['k'], le['b'],
                                                                                   Image(x=le['x_r_point'], y=le['y_r_point']),
                                                                                   steps=10)
@@ -1593,7 +1554,7 @@ if __name__ == "__main__":
         mlines.Line2D(
             opt_sep_features_x1,
             opt_sep_features_y1,
-            color="black",
+            color="red",
             linewidth=2.1,
             marker="")
     )
@@ -1627,6 +1588,9 @@ if __name__ == "__main__":
     # ========================
     # / Program Body
     # ========================
+
+    print(f'N1={N1}, N2={N2}\nMx1={Mx1}, My1={My1}, Dx1={Dx1}, Dy1={Dy1}\nMx2={Mx2}, My2={My2}, Dx2={Dx2}, Dy2={Dy2}')
+    plt.title(f'N1={N1}, N2={N2}\nMx1={Mx1}, My1={My1}, Dx1={Dx1}, Dy1={Dy1}\nMx2={Mx2}, My2={My2}, Dx2={Dx2}, Dy2={Dy2}')
 
     plt.show()
     sys.exit()
