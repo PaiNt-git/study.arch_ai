@@ -1220,7 +1220,7 @@ class CloudComparator:
                 k_rot_off, b_rot_off, left_x, left_y, right_x, right_y = offset_line_equation_and_points(k_rot_off,
                                                                                                          b_rot_off,
                                                                                                          (O_x, O_y),  # o_point
-                                                                                                         (left_x, left_y),  # r_point
+                                                                                                         (r_x, r_y),  # r_point
                                                                                                          x_min, x_max, y_min, y_max
                                                                                                          )(offset)
 
@@ -1249,7 +1249,7 @@ class CloudComparator:
                     k_rot_off_, b_rot_off_, left_x, left_y, right_x, right_y = rotate_line_equation(k_rot_off,
                                                                                                     b_rot_off,
                                                                                                     (O_x, O_y),  # o_point
-                                                                                                    (r_x, r_y),  # r_point
+                                                                                                    (left_x, left_y),  # r_point
                                                                                                     x_min, x_max, y_min, y_max
                                                                                                     )(fi_)
 
@@ -1580,7 +1580,10 @@ if __name__ == "__main__":
     )
 
     # Тестирование точки. Подпись угла
-    for testpoint in [random.choice(cloud1._images[:5]), random.choice(cloud2._images[:5]), random.choice(cloud1._images[-5:]), random.choice(cloud2._images[-5:])]:  # random.choice((cloud1, cloud2))._images[:5]
+    for testpoint in [random.choice(cloud1._images[:5]),
+                      random.choice(cloud2._images[:5]),
+                      random.choice(cloud1._images[-5:]),
+                      random.choice(cloud2._images[-5:])]:
 
         testklass = comparator.classify_image(testpoint, k_sep_line=opt_le['k'], b_sep_line=opt_le['b'])
         xtest = round(testpoint.x, 2)
