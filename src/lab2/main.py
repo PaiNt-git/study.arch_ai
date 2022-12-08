@@ -1178,7 +1178,7 @@ class CloudComparator:
             even_stnum = 0
             stvalue = int(abs(getattr(self.cloud1, x)['M'] - getattr(self.cloud2, x)['M']) / 20)
             offsets = []
-            for step in range(1, steps + 1):
+            for step in range(0, steps + 1):
                 iseven = (step % 2 == 0)
                 if iseven:
                     even_stnum += 1
@@ -1219,7 +1219,7 @@ class CloudComparator:
                         pass
 
                 linegp = good_points[(x, y)][(k_offset_r, b_offset_r, offset)]
-                print(f'Линия y = {k_offset_r} * x + {b_offset_r}, Хороших точек: {linegp}')
+                # print(f'Линия y = {k_offset_r} * x + {b_offset_r}, Хороших точек: {linegp}')
 
                 for fi_ in range(20, 91, 20):
 
@@ -1248,7 +1248,7 @@ class CloudComparator:
                             pass
 
                     linegp = good_points[(x, y)][(k_rotate_r, b_rotate_r, offset)]
-                    print(f'Линия y = {k_rotate_r} * x + {b_rotate_r}, Хороших точек: {linegp}')
+                    # print(f'Линия y = {k_rotate_r} * x + {b_rotate_r}, Хороших точек: {linegp}')
 
             pass
 
@@ -1407,11 +1407,54 @@ class CloudComparator:
 
 
 if __name__ == "__main__":
-    cloud2 = ClassNormalCloud(100, x={'M': 600, 'D': 10000}, y={'M': 500, 'D': 8000}, klass=2)
-    cloud2.fill_cloud_Rn_dimension()
 
-    cloud1 = ClassNormalCloud(100, x={'M': 200, 'D': 80000}, y={'M': 700, 'D': 1000}, klass=1)
+    print('Введите N1: ')
+    N1 = input()
+    N1 = int(N1) if N1 else 100
+
+    print('Введите N2: ')
+    N2 = input()
+    N2 = int(N2) if N2 else 100
+
+    print('Введите Mx1: ')
+    Mx1 = input()
+    Mx1 = int(Mx1) if Mx1 else 600
+
+    print('Введите My1: ')
+    My1 = input()
+    My1 = int(My1) if My1 else 500
+
+    print('Введите Mx2: ')
+    Mx2 = input()
+    Mx2 = int(Mx2) if Mx2 else 200
+
+    print('Введите My2: ')
+    My2 = input()
+    My2 = int(My2) if My2 else 700
+
+    print('Введите Dx1: ')
+    Dx1 = input()
+    Dx1 = int(Dx1) if Dx1 else 10000
+
+    print('Введите Dy1: ')
+    Dy1 = input()
+    Dy1 = int(Dy1) if Dy1 else 8000
+
+    print('Введите Dx2: ')
+    Dx2 = input()
+    Dx2 = int(Dx2) if Dx2 else 80000
+
+    print('Введите Dy2: ')
+    Dy2 = input()
+    Dy2 = int(Dy2) if Dy2 else 1000
+
+    print('Значения введены, программа расчитывает оптимальную линию...')
+
+    cloud1 = ClassNormalCloud(N1, x={'M': Mx1, 'D': Dx1}, y={'M': My1, 'D': Dy1}, klass=2)
     cloud1.fill_cloud_Rn_dimension()
+
+    cloud2 = ClassNormalCloud(N2, x={'M': Mx2, 'D': Dx2}, y={'M': My2, 'D': Dy2}, klass=1)
+    cloud2.fill_cloud_Rn_dimension()
 
     features_x1 = list(itertools.chain(cloud1.get_feature_iterator('x')))
     features_y1 = list(itertools.chain(cloud1.get_feature_iterator('y')))
