@@ -937,6 +937,10 @@ class CloudComparator:
 
         midinm = Image(**center_coords)
 
+        # Если точка смещена за середину то берем середину
+        if minlen > self.mid_len:
+            midinm = self.mid_image
+
         # Вычислим точку перпендикуляра к середине между границами распределения
         endnormal_coords = []
         for feature_r2 in itertools.combinations(self.cloud1.features_names, 2):
