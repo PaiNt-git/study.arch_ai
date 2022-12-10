@@ -1171,6 +1171,12 @@ class CloudComparator:
         """
         left_cloud_num_ = left_cloud_num
 
+        if len(training1) > 200:
+            training1 = random.sample(training1, 200)
+
+        if len(training2) > 200:
+            training2 = random.sample(training2, 200)
+
         ret_k = 0
         ret_b = 0
         ret_offset = 0
@@ -1561,7 +1567,7 @@ if __name__ == "__main__":
     )
 
     # Линия оптимизированная
-    opt_sep_points, opt_line_equations = comparator.get_optimized_sep_line_points(cloud1._images[:200], cloud2._images[:200],
+    opt_sep_points, opt_line_equations = comparator.get_optimized_sep_line_points(cloud1._images, cloud2._images,
                                                                                   le['k'], le['b'],
                                                                                   Image(x=le['x_r_point'], y=le['y_r_point']),
                                                                                   steps=10)
