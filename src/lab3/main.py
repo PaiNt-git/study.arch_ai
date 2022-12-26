@@ -322,6 +322,17 @@ class Clock:
     def __str__(self):
         if self.mid_prob_loss > 0.5:
             return '[Невозможно определить]'
+
+        # Поправки для контекста "Часы и минуты"
+        if self.first_digit.label > 2:
+            self.first_digit.label = None
+        else:
+            if self.first_digit.label == 2 and self.second_digit.label > 4:
+                self.second_digit.label = None
+
+        if self.third_digit.label > 5:
+            self.third_digit.label = None
+
         if self.first_digit.label is not None and self.second_digit.label is not None and self.third_digit.label is not None and self.four_digit.label is not None:
             return f'{self.first_digit.label}{self.second_digit.label}:{self.third_digit.label}{self.four_digit.label}'
         return '[Невозможно определить]'
