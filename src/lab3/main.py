@@ -1,6 +1,8 @@
+import os
 import sys
 import re
 import itertools
+import glob
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,7 +13,7 @@ from collections import defaultdict
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-import os
+import random
 
 
 ETALON_PIXEL_DATA = defaultdict(list)
@@ -103,7 +105,7 @@ class NNDigitRecogniteModel:
 
     def nn_fit(self):
         self._dataset_to_traintest()
-        self.model.fit(self.X_train, self.y_train, epochs=20, batch_size=128)
+        self.model.fit(self.X_train, self.y_train, epochs=60, batch_size=128)
         self.model.save(f'keras_train_model_{self.nn_key}{self.digits_in_line}.bin')
         self.model.evaluate(self.X_test, self.y_test)
 
@@ -121,6 +123,7 @@ class NNDigitRecogniteModel:
 
     def nn_predicted_digit_and_prob(self, image_vectors=[]):
         ret = self.nn_predict(image_vectors)
+
         ret = ret.tolist()[0]
 
         label = int(np.argmax(ret))
@@ -181,7 +184,7 @@ class NNPixelDigit:
         """
         self._pixel_data = list(map(lambda x: x.strip(), string_with_lb.splitlines()))
         if nn_key + str(1) not in NEURAL_MODEL_REGISTRY:
-            NEURAL_MODEL_REGISTRY[nn_key + str(1)] = NNDigitRecogniteModel()
+            NEURAL_MODEL_REGISTRY[nn_key + str(1)] = NNDigitRecogniteModel(1, nn_key)
 
         self.nn = NEURAL_MODEL_REGISTRY[nn_key + str(1)]
 
@@ -295,6 +298,38 @@ class Clock:
 
 if __name__ == "__main__":
 
+    # Если в папке найдены образцы для обучения цифр
+    answer = ''
+    training_samples = glob.glob(os.path.join(os.path.dirname(__file__), 'train_dataset', '*.txt'))
+    if len(training_samples):
+        while not answer:
+            print('В папке программы найдены образцы для тренировки сети, обучить сеть по ним? (y/n): ')
+            answer = input()
+            answer = answer.strip()
+
+    if answer.lower() == 'y':
+        nn_digit = NNDigitRecogniteModel(1, 'main')
+        NEURAL_MODEL_REGISTRY['main1'] = nn_digit
+
+        samples_list = []
+
+        for sample in training_samples:
+            training_etalons = defaultdict(list)
+            __pixels_load(sample, training_etalons)
+
+            for k, pixels in training_etalons.items():
+                digit = NNPixelDigit('\n'.join(pixels), label=k)
+
+                samples_list.append((k, digit))
+
+        random.shuffle(samples_list)
+
+        for k, dig in samples_list:
+            nn_digit.add_to_dataset(k, dig.bin_vectorize_block())
+
+        nn_digit.nn_fit()
+
+    # Код програмы
     last_clock = None
 
     stop_while = False
@@ -336,10 +371,10 @@ if __name__ == "__main__":
 
             rec_time.four_digit.label, four_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.four_digit.image_vect)
 
-            mid_prob_loss = 1.0 - (first_prob +
-                                   second_prob +
-                                   third_prob +
-                                   four_prob) / 4
+            mid_prob_loss = 1.0 - ((first_prob +
+                                    second_prob +
+                                    third_prob +
+                                    four_prob) / 4)
 
             print('Распознано время:')
             print(rec_time)
