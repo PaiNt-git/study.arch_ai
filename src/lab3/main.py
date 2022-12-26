@@ -3,22 +3,17 @@ import sys
 import re
 import itertools
 import glob
-import random
-import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow.keras as keras
 
 from collections import defaultdict
 
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-
-
-warnings.filterwarnings("ignore")
-
-import tensorflow.keras as keras
+import random
 
 
 ETALON_PIXEL_DATA = defaultdict(list)
