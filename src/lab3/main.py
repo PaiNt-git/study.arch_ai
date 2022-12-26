@@ -269,12 +269,43 @@ class Clock:
         self._d1, self._d2, self._d3, self._d4 = self.devide_digits(string_time)
 
         self.first_digit = NNPixelDigit(self._d1)
+        self.first_prob = 0
 
         self.second_digit = NNPixelDigit(self._d2)
+        self.second_prob = 0
 
         self.third_digit = NNPixelDigit(self._d3)
+        self.third_prob = 0
 
         self.four_digit = NNPixelDigit(self._d4)
+        self.four_prob = 0
+
+    @property
+    def mid_prob_loss(self):
+        digit_nn = self.first_digit.nn
+
+        if self.first_digit.label is None and self.first_prob == 0:
+
+            self.first_digit.label, self.first_prob = digit_nn.nn_predicted_digit_and_prob(self.first_digit.image_vect)
+
+        if self.second_digit.label is None and self.second_prob == 0:
+
+            self.second_digit.label, self.second_prob = digit_nn.nn_predicted_digit_and_prob(self.second_digit.image_vect)
+
+        if self.third_digit.label is None and self.third_prob == 0:
+
+            self.third_digit.label, self.third_prob = digit_nn.nn_predicted_digit_and_prob(self.third_digit.image_vect)
+
+        if self.four_digit.label is None and self.four_prob == 0:
+
+            self.four_digit.label, self.four_prob = digit_nn.nn_predicted_digit_and_prob(self.four_digit.image_vect)
+
+        mid_prob_loss = 1.0 - ((self.first_prob +
+                                self.second_prob +
+                                self.third_prob +
+                                self.four_prob) / 4)
+
+        return mid_prob_loss
 
     def add_to_dataset(self, labels: list=None):
         self.first_digit.nn.add_to_dataset(labels=labels[0],
@@ -294,6 +325,19 @@ class Clock:
                                           )
 
     def __str__(self):
+        if self.mid_prob_loss > 0.5:
+            return '[Невозможно определить]'
+
+        # Поправки для контекста "Часы и минуты"
+        if self.first_digit.label > 2:
+            self.first_digit.label = None
+        else:
+            if self.first_digit.label == 2 and self.second_digit.label > 4:
+                self.second_digit.label = None
+
+        if self.third_digit.label > 5:
+            self.third_digit.label = None
+
         if self.first_digit.label is not None and self.second_digit.label is not None and self.third_digit.label is not None and self.four_digit.label is not None:
             return f'{self.first_digit.label}{self.second_digit.label}:{self.third_digit.label}{self.four_digit.label}'
         return '[Невозможно определить]'
@@ -359,32 +403,19 @@ if __name__ == "__main__":
         time_str = input()
         time_str = time_str.strip()
         if time_str == '' or time_str == 'recognite':
-            print('Дообучим сеть одиночных цифр')
             digit_nn = rec_time.first_digit.nn
 
             if len(digit_nn.labels_vect_dataset) != 0 and len(digit_nn.labels_vect_dataset) == len(digit_nn.images_vect_dataset):
+                print('Дообучим сеть одиночных цифр')
                 digit_nn.nn_fit()
 
             if not len(rec_time.first_digit.image_vect):
                 rec_time = last_clock
 
-            rec_time.first_digit.label, first_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.first_digit.image_vect)
-
-            rec_time.second_digit.label, second_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.second_digit.image_vect)
-
-            rec_time.third_digit.label, third_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.third_digit.image_vect)
-
-            rec_time.four_digit.label, four_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.four_digit.image_vect)
-
-            mid_prob_loss = 1.0 - ((first_prob +
-                                    second_prob +
-                                    third_prob +
-                                    four_prob) / 4)
-
             print('Распознано время:')
             print(rec_time)
 
-            print(f'Вероятность ошибки: {mid_prob_loss}')
+            print(f'Вероятность ошибки: {rec_time.mid_prob_loss}')
 
             stop_while = True
             continue
