@@ -119,6 +119,15 @@ class NNDigitRecogniteModel:
 
         return self.model.predict(images_vect.reshape((1, -1)))
 
+    def nn_predicted_digit_and_prob(self, image_vectors=[]):
+        ret = self.nn_predict(image_vectors)
+        ret = ret.tolist()[0]
+
+        label = int(np.argmax(ret))
+        prob = ret[label]
+
+        return label, prob
+
     def add_to_dataset(self, labels=[], image_vectors=[]):
         if not isinstance(labels, (list, tuple, )):
             labels = [labels]
@@ -286,6 +295,8 @@ class Clock:
 
 if __name__ == "__main__":
 
+    last_clock = None
+
     stop_while = False
     while not stop_while:
         print('Введите строку для распознавания: ')
@@ -314,22 +325,21 @@ if __name__ == "__main__":
             if len(digit_nn.labels_vect_dataset) != 0 and len(digit_nn.labels_vect_dataset) == len(digit_nn.images_vect_dataset):
                 digit_nn.nn_fit()
 
-            fd_predict = digit_nn.nn_predict(rec_time.first_digit.image_vect).tolist()
-            rec_time.first_digit.label = int(np.argmax(fd_predict))
+            if not len(rec_time.first_digit.image_vect):
+                rec_time = last_clock
 
-            sd_predict = digit_nn.nn_predict(rec_time.second_digit.image_vect).tolist()
-            rec_time.second_digit.label = int(np.argmax(sd_predict))
+            rec_time.first_digit.label, first_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.first_digit.image_vect)
 
-            td_predict = digit_nn.nn_predict(rec_time.third_digit.image_vect).tolist()
-            rec_time.third_digit.label = int(np.argmax(td_predict))
+            rec_time.second_digit.label, second_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.second_digit.image_vect)
 
-            fod_predict = digit_nn.nn_predict(rec_time.four_digit.image_vect).tolist()
-            rec_time.four_digit.label = int(np.argmax(fod_predict))
+            rec_time.third_digit.label, third_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.third_digit.image_vect)
 
-            mid_prob_loss = 1.0 - sum(fd_predict[rec_time.first_digit.label] +
-                                      sd_predict[rec_time.second_digit.label] +
-                                      td_predict[rec_time.third_digit.label] +
-                                      fod_predict[rec_time.four_digit.label]) / 4
+            rec_time.four_digit.label, four_prob = digit_nn.nn_predicted_digit_and_prob(rec_time.four_digit.image_vect)
+
+            mid_prob_loss = 1.0 - (first_prob +
+                                   second_prob +
+                                   third_prob +
+                                   four_prob) / 4
 
             print('Распознано время:')
             print(rec_time)
@@ -342,7 +352,7 @@ if __name__ == "__main__":
         negate = False
         if not time_str or time_str.startswith('!'):
             negate = True
-            time_str = time_str[1:]
+            time_str = time_str[1:].strip()
 
         if time_str:
             hours, _, minutes = time_str.partition(':')
@@ -360,3 +370,5 @@ if __name__ == "__main__":
 
         elif negate:
             rec_time.add_to_dataset([None, None, None, None])
+
+        last_clock = rec_time
