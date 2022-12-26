@@ -115,7 +115,7 @@ if __name__ == "__main__":
     features_y2 = list(itertools.chain(cloud2.get_feature_iterator('y')))
 
     # Построение Координатной плоскости облака образов
-    fig, ax = plt.subplots(figsize=(10, 6), num='Множества образов')
+    fig, ax = plt.subplots(figsize=(10, 6), num='Обучающие множества')
 
     # Чтобы перпендикуляры были перпендикулярными
     ax.set_aspect('equal', adjustable='box')
@@ -174,6 +174,63 @@ if __name__ == "__main__":
     # Program Body
     # ========================
 
+    print(f'\nОбучающие множества\nN1={N1}, N2={N2}\nMx1={Mx1}, My1={My1}, Dx1={Dx1}, Dy1={Dy1}\nMx2={Mx2}, My2={My2}, Dx2={Dx2}, Dy2={Dy2}')
+    plt.title(f'Обучающие множества\n\n')
+    plt.show()
+
+    # Получим минимальные и максимальные значения x, y
+    x1_m, y1_m, x2_m, y2_m, x_min, x_max, y_min, y_max = comparator.get_x_y_min_max_and_m('x', 'y')
+    d_x = (x_max - x_min)
+    x_mid = (x_max + x_min) / 2
+    d_y = (y_max - y_min)
+    y_mid = (y_max + y_min) / 2
+    Dx = (abs(d_x) / 2)**2
+    Dy = (abs(d_y) / 2)**2
+    mid_D = (Dx + Dy) / 2
+    mid_s = math.sqrt(mid_D)
+    Sx = math.sqrt(Dx)
+    Sy = math.sqrt(Dx)
+    Dx_95 = (Sx * 3)**2
+    Dy_95 = (Sy * 3)**2
+
+    cloud3 = ClassNormalCloud(int((abs(d_x) * abs(d_y)) // (mid_s // 5)), x={'M': x_mid, 'D': Dx_95}, y={'M': y_mid, 'D': Dy_95})
+    cloud3.fill_cloud_Rn_dimension()
+
+    def uniform_filter(im):
+        if im.x > x_max + Sx:
+            return False
+        elif im.x < x_min - Sx:
+            return False
+        if im.y < y_min - Sy:
+            return False
+        elif im.y > y_max + Sy:
+            return False
+        return True
+    cloud3._images = list(filter(uniform_filter, cloud3._images))  # в области 3сигм больше всего значений. отсекаем аномалии
+
+    # Образы равномерно по плоскости
+    features_x3 = list(itertools.chain(cloud3.get_feature_iterator('x')))
+    features_y3 = list(itertools.chain(cloud3.get_feature_iterator('y')))
+
+    # Построение Координатной плоскости облака образов
+    fig, ax = plt.subplots(figsize=(10, 6), num='Равномерно распределенные образы')
+
+    # Чтобы перпендикуляры были перпендикулярными
+    ax.set_aspect('equal', adjustable='box')
+
+    # Удаление верхней и правой границ
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Добавление основных линий сетки
+    ax.grid(color='grey', linestyle='-', linewidth=0.25, alpha=0.5)
+
+    ax.scatter(features_x3, features_y3, color="#0b4b48")
+
+    plt.title(f'Равномерно распределенные образы\n\n')
+    plt.show()
+
     # Тестирование точки. Подпись угла
     for testpoint in [random.choice(cloud1._images[:5]),
                       random.choice(cloud2._images[:5]),
@@ -205,8 +262,6 @@ if __name__ == "__main__":
     # / Program Body
     # ========================
 
-    print(f'N1={N1}, N2={N2}\nMx1={Mx1}, My1={My1}, Dx1={Dx1}, Dy1={Dy1}\nMx2={Mx2}, My2={My2}, Dx2={Dx2}, Dy2={Dy2}')
-    plt.title(f'N1={N1}, N2={N2}\nMx1={Mx1}, My1={My1}, Dx1={Dx1}, Dy1={Dy1}\nMx2={Mx2}, My2={My2}, Dx2={Dx2}, Dy2={Dy2}')
-
+    plt.title(f'Распознанные образы\n\n')
     plt.show()
     sys.exit()
