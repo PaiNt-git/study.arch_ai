@@ -3,6 +3,7 @@ import sys
 import re
 import itertools
 import glob
+import random
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +14,6 @@ from collections import defaultdict
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
-import random
 
 
 ETALON_PIXEL_DATA = defaultdict(list)
