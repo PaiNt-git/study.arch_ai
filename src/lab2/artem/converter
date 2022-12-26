@@ -1,7 +1,0 @@
-https://pypi.org/project/ipynb-py-convert/
-
-ipynb-py-convert examples/plot.py examples/plot.ipynb
-
-or
-
-ipynb-py-convert examples/plot.ipynb examples/plot.py
