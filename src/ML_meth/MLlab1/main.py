@@ -1,89 +1,85 @@
+"""
+Лабораторная работа No1
+Расчет коэффициентов разделяющей линии и вычисление отступа (margin)
+для объектов разных классов
+Цель работы: научиться вычислять коэффициенты разделяющей линии и
+величину отступа (margin) при бинарной классификации объектов.
+
+"""
+
 import numpy as np
 import matplotlib.pyplot as plt
 
-#cell 1
-if __name__ == "__main__":
-    points = {
-        'green': [[1, 7], [7, 3]],
-        'blue': [[4, 2], [9, 1]]
-    }
 
-    count_of_points = 0  # размер обучающей выборки
-    for point_class in points:
-        count_of_points += len(points[point_class])
+#===============================================================================
+# Обучающая выборка
+#===============================================================================
 
-    w = [0, -1]  # нач. значение вектора w
+# вариант 5
 
-    def a(x): return np.sign(x[0] * w[0] + x[1] * w[1])  # решающее правило
-    N = 50   # максимальное число итераций
-    L = 0.1  # шаг изменения веса
-    e = -0.05  # небольшая добавка w0 для зазора м/ду раздел. линией и классами
-    last_err_index = None  # индекс последнего ошибоч. наблюдения
+x_train = np.array([[1, 3], [7, 4], [4, 3], [9, 4]])
+y_train = np.array([-1, -1, 1, 1])  # -1 - зеленые, 1 - синие
 
-    for n in range(N):
-        count_of_right_answer = 0
-        for point_class in points:
-            multiplier = 1
-            if point_class == 'green':
-                multiplier = -1
-            for point in points[point_class]:
-                if multiplier * a(point) < 0:
-                    w[0] = w[0] + L * multiplier
-                    last_err_index = multiplier
-                else:
-                    count_of_right_answer += 1
-        if count_of_right_answer == count_of_points:
-            print('break')
-            break
-
-    w_0 = 0  # смещение
-    if last_err_index:
-        w[0] += e * last_err_index + w_0
-    print_w = f"w = transpose([w_0, w_1, w_2]) = transpose([{w_0}, {w[0]}, {w[1]}])"
-
-    # определяем координаты разделяющей линии
-    line_x = [xy[0] for point_class in points for xy in points[point_class]]
-    line_x_coords = min(line_x), max(line_x)
-    line_y_coords = w[0] * line_x_coords[0], w[0] * line_x_coords[1]
-
-    # вычисляем отступы
-    point_margin = {
-        'green': [],
-        'blue': []
-    }
-    for point_class in points:
-        multiplier = 1
-        if point_class == 'green':
-            multiplier = -1
-        for point in points[point_class]:
-            point_margin[point_class].append(
-                round(multiplier * (w[0] * point[0] + w[1] * point[1]), 2)
-            )
-
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 8))
-    ax.set_title(print_w, color='black')
-    ax.plot(line_x_coords, line_y_coords, color='red',
-            label=f'Разделяющая линия, {w[0]} * x + {w[1]} * y + {w_0} = 0'
-            )
-
-    for point_class in points:
-        ax.scatter(
-            list(map(lambda x: x[0], points[point_class])),
-            list(map(lambda x: x[1], points[point_class])),
-            color=point_class,
-            label=f"Образы {point_class}, Отступы: {point_margin[point_class]}"
-        )
-    ax.tick_params(labelcolor='indigo')
-    ax.legend()
-    ax.grid()
-    plt.show()
+#===============================================================================
 
 
-#cell 2
+# Параметры алгоритма ===========================
+
+n_train = len(x_train)                          # размер обучающей выборки
+w = [0, -1]                                     # начальное значение вектора w
 
 
-#cell 3
+def a(x): return np.sign(x[0] * w[0] + x[1] * w[1])    # решающее правило (модель)
 
+
+N = 50                                          # максимальное число итераций
+nt = 0.1                                        # (эта) - шаг изменения веса
+e = 0.1                                         # небольшая добавка для w0 чтобы был зазор между разделяющей линией и граничным образом
+
+# ===============================================
+
+
+last_error_index = -1                        # индекс последнего ошибочного наблюдения
+
+for n in range(N):
+    for i in range(n_train):                 # перебор по наблюдениям
+        if y_train[i] * a(x_train[i]) < 0:   # если ошибка классификации (отступ M = y_train[i]*a(x_train[i])),
+            w[0] = w[0] + nt * y_train[i]    # то корректировка веса w0
+            last_error_index = i
+
+    Q = sum([1 for i in range(n_train) if y_train[i] * a(x_train[i]) < 0])  # Функционал качества (list-comprehension) это нотация Айзерсона
+    if Q == 0:      # показатель качества классификации (число ошибок), в общем случае → 0 для дифференцируемых функций. Но так как у нас кусочно-непрерывная
+        break       # останов, если все верно классифицируем
+
+
+if last_error_index > -1:
+    w[0] = w[0] + e * y_train[last_error_index]
+
+print(f'Весовые коэффициенты (вектор настраиваемых параметров): {w}')
+
+
+line_x = list(range(max(x_train[:, 0])))    # формирование графика разделяющей линии
+line_y = [w[0] * x for x in line_x]
+
+
+x_0 = x_train[y_train == 1]                 # формирование точек для 1-го, numpy-python3 сахар, предикат в __getitem__()
+x_1 = x_train[y_train == -1]                # и 2-го классов
+
+
+plt.scatter(x_0[:, 0], x_0[:, 1], color='green', label=f"C1=-1")  # [:, 0] - питон 3 магия __getitem__ которую юзает numpy, эта запись значит "взять срез, тоесть копировать" и взять 0-й столбец из матрицы (первый)
+plt.scatter(x_1[:, 0], x_1[:, 1], color='blue', label=f"C2=+1")
+plt.plot(line_x, line_y, color='red', label=f'Разделяющая линия, x2 = {w[0]}*x1')
+
+plt.xlim([0, 45])
+plt.ylim([0, 75])
+plt.ylabel("x2")
+plt.xlabel("x1")
+
+plt.tick_params(labelcolor='indigo')
+plt.legend()
+
+plt.grid(True)
+plt.show()
 
 if __name__ == "__main__":
     pass
