@@ -131,6 +131,8 @@ x_1 = x_train[y_train == -1]  # и 2-го классов
 line_sign = '-' if (-1 * (w[2] / w[1])) < 0 else '+'
 abs_w2 = abs(w[2] / w[1])
 
+plt.suptitle(f'Метод SGD (градиентный спуск)\n (вариант №5)\n число итераций {N}, λ={lm}, η={nt} (ул. сход. exp)', fontsize=12)
+
 plt.scatter(x_0[:, 0], x_0[:, 1], color='red', label=f"C1=-1")
 plt.scatter(x_1[:, 0], x_1[:, 1], color='blue', label=f"C2=+1")
 plt.plot(line_x, line_y, color='green', label=f'Разделяющая линия,  x2 = {0-w[0]/w[1]:.3f}*x1 {line_sign} {abs_w2:.3f}')

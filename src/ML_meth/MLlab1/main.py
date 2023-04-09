@@ -60,6 +60,9 @@ line_sign = '-' if (-1 * (w[2] / w[1])) < 0 else '+'
 abs_w2 = abs(w[2] / w[1])
 
 
+plt.suptitle(f'Линейная бинарная классификация\n (вариант №5)\n ω = [{w[2]:.3f}, {w[1]:.3f}, {w[0]:.3f}]ᵀ', fontsize=12)
+
+
 plt.scatter(x_0[:, 0], x_0[:, 1], color='green', label=f"C1=-1")  # [:, 0] - питон 3 магия __getitem__ которую юзает numpy, эта запись значит "взять срез, тоесть копировать" и взять 0-й столбец из матрицы (первый)
 plt.scatter(x_1[:, 0], x_1[:, 1], color='blue', label=f"C2=+1")
 plt.plot(line_x, line_y, color='red', label=f'Разделяющая линия,  x2 = {0-w[0]/w[1]:.3f}*x1 {line_sign} {abs_w2:.3f}')
