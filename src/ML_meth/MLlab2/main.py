@@ -53,7 +53,6 @@ def df(w, x, y):
 # Очистка данных ===============
 # Удалим дубликаты
 
-
 data_x_plus_y = zip(data_x, data_y)
 data_x_plus_y = np.array([[*xy[0], xy[1]] for xy in data_x_plus_y])
 data_x_plus_y = np.unique(data_x_plus_y, axis=0)
