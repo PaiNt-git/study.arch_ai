@@ -4,6 +4,7 @@
 Цель работы: научиться строить наивный байесовский классификатор и с его
 помощью выполнять бинарную классификацию образов.
 
+https://proproprogs.ru/ml/ml-bayesovskiy-vyvod-naivnaya-bayesovskaya-klassifikaciya
 """
 
 import numpy as np
@@ -62,7 +63,13 @@ def a_с1(x): return -(x[0] - mx2_c1) ** 2 / (2 * sx2_c1) - (x[1] - mx1_c1) ** 2
 def a_с2(x): return -(x[0] - mx2_c2) ** 2 / (2 * sx2_c2) - (x[1] - mx1_c2) ** 2 / (2 * sx1_c2)
 
 
-def classify(x): return (-1 if np.argmax([a_с1(x), a_с2(x)]) == 0 else 1)
+def classify(x):
+    """
+    Классификатор, -1, +1
+
+    :param x:
+    """
+    return (-1 if np.argmax([a_с1(x), a_с2(x)]) == 0 else 1)
 
 
 # Класифицированные образы

@@ -4,6 +4,7 @@
 Цель работы: изучить особенности работы L2-регуляризатора на примере задачи
 аппроксимации функции линейной моделью
 
+https://proproprogs.ru/ml/ml-l2-regulyarizator-matematicheskoe-obosnovanie-i-primer-raboty
 """
 
 import numpy as np
