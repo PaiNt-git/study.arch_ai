@@ -50,12 +50,12 @@ if __name__ == "__main__":
     }
 
     classes['green']['dispersion'] = {
-        'x': np.var(classes['green']['data'], axis=0)[0],
-        'y': np.var(classes['green']['data'], axis=0)[1],
+        'x': np.var(classes['green']['data'], axis=0, ddof=1)[0],
+        'y': np.var(classes['green']['data'], axis=0, ddof=1)[1],
     }
     classes['blue']['dispersion'] = {
-        'x': np.var(classes['blue']['data'], axis=0)[0],
-        'y': np.var(classes['blue']['data'], axis=0)[1],
+        'x': np.var(classes['blue']['data'], axis=0, ddof=1)[0],
+        'y': np.var(classes['blue']['data'], axis=0, ddof=1)[1],
     }
 
     if debug:
@@ -114,12 +114,13 @@ for class_i in classes:
 # ------------------------------------------------------------------------------
 
 # Построение графиков ----------------------------------------------------------
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
-fig.suptitle(f'Наивный байесовский классификатор\n(вариант №8, размер выборки: {len(clean_data)})', fontsize=16)
-
-ax[0].set_title('Первоначальное распределение', color='black')
-
 for class_i in classes:
+
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(16, 8))
+    fig.suptitle(f'Наивный байесовский классификатор\n(вариант №8, размер выборки: {len(clean_data)})', fontsize=16)
+
+    ax[0].set_title('Первоначальное распределение', color='black')
+
     ax[0].scatter(
         classes[class_i]['data'].transpose()[0],
         classes[class_i]['data'].transpose()[1],
@@ -153,5 +154,6 @@ for class_i in classes:
         )
     ax[1].tick_params(labelcolor='indigo')
     ax[1].legend()
+
     plt.show()
 # ------------------------------------------------------------------------------
