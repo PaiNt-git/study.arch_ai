@@ -34,7 +34,23 @@ xxt = np.sum([np.outer(x, x) for x in x_train], axis=0)  # Сумма x * xT
 invmat = np.linalg.inv(xxt)  # xxt^-1 или обратная матрица
 w = np.dot(pt, invmat)
 
-print(f'Весовые коэффициенты (вектор настраиваемых параметров): {w}')
+
+def margin(x, y):
+    """
+    Отступы от линии разделения
+
+    """
+    return (x[0] * w[0] + x[1] * w[1] + w[2]) * y
+
+
+margins = [margin(x, y) for x, y in zip(x_train, y_train)]
+
+
+print(f'Весовые коэффициенты (вектор настраиваемых параметров): {list(w)}')
+
+
+for i in range(len(x_train)):
+    print(f'Точка {list(x_train[i][:-1])}, класс {y_train[i]}, отступ {margins[i]}')
 
 
 def classify(x):
